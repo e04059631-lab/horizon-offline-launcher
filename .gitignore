@@ -1,0 +1,7 @@
+/target
+/game
+/dist
+*.pdb
+*.zip
+*.exe
+launcher_config.json

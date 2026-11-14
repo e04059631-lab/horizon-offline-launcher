@@ -1,0 +1,32 @@
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0
+UI CENTRAL: avail_w=920, avail_h=496, left_w=602, right_w=302
+HOME: full_w=602, avail_h=18
+AFTER CARD 1: cursor=227.0, avail_h=0
+AFTER DUAL CARDS: cursor=460.0, avail_h=0

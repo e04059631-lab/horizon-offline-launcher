@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Horizon Launcher
+Comment=Horizon Launcher - Minecraft Java Edition 26.3
+Exec=horizon-launcher
+Icon=horizon-launcher
+Terminal=false
+Type=Application
+Categories=Game;
+StartupWMClass=horizon-launcher
