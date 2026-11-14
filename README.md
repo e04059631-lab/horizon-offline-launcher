@@ -47,12 +47,12 @@
 
 ## 🎮 Готовые сборки (Releases)
 
-Готовые автономные сборки со всеми вшитыми ассетами доступны на вкладке **Releases**:
+Готовые автономные сборки со всеми вшитыми ассетами опубликованы на странице **[Релиз v1.0.0](https://gitlab.com/wwerz1/horizon-offline/-/releases/v1.0.0)**:
 
-| ОС | Файл | Размер | Особенности |
+| ОС | Файл для скачивания | Размер | Особенности |
 | :--- | :--- | :--- | :--- |
-| **Windows 10 / 11 (x64)** | `horizon-launcher-windows-x64.exe` | ~423 МБ | Портативный .exe, не требует установки. |
-| **Linux (x86_64)** | `horizon-launcher-linux-x86_64` | ~428 МБ | Автономный бинарник для любого Linux-дистрибутива. |
+| **Windows 10 / 11 (x64)** | 🪟 [horizon-launcher-windows-x64.exe](https://gitlab.com/api/v4/projects/88944111/packages/generic/horizon-launcher/v1.0.0/horizon-launcher-windows-x64.exe) | ~423 МБ | Портативный .exe, не требует установки. |
+| **Linux (x86_64)** | 🐧 [horizon-launcher-linux-x86_64](https://gitlab.com/api/v4/projects/88944111/packages/generic/horizon-launcher/v1.0.0/horizon-launcher-linux-x86_64) | ~428 МБ | Автономный бинарник для любого Linux-дистрибутива. |
 
 ---
 
