@@ -1,103 +1,82 @@
-# ⛏️ Horizon Offline Launcher
+<p align="center">
+  <img src="assets/banner.jpg" alt="Horizon Offline Launcher Banner" width="100%">
+</p>
+
+<h1 align="center">Horizon Offline Launcher</h1>
 
 <p align="center">
-  <img src="assets/icon.png" alt="Horizon Launcher Logo" width="128" height="128">
+  <strong>Автономный оффлайн-лаунчер на Rust + Slint с дизайном iOS Liquid Glass, встроенными ассетами 26.3 и каталогом модов.</strong>
 </p>
 
 <p align="center">
-  <strong>Автономный оффлайн-форк Horizon Launcher на Rust с интерфейсом iOS Liquid Glass (Slint) под версию 26.3.</strong>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Fork%20Of-Horizon%20Launcher-FF8A65?style=for-the-badge" alt="Fork of Horizon">
   <img src="https://img.shields.io/badge/Language-Rust-B7410E?style=for-the-badge&logo=rust&logoColor=white" alt="Rust">
-  <img src="https://img.shields.io/badge/License-No%20License%20Required-00b894?style=for-the-badge" alt="No License">
-  <img src="https://img.shields.io/badge/Assets-Pre--installed%20%28Zero%20Download%29-F57C00?style=for-the-badge" alt="Pre-installed Assets">
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-4E73DF?style=for-the-badge" alt="Platforms">
-  <img src="https://img.shields.io/badge/UI-iOS%20Liquid%20Glass%20(Slint)-7CC6FE?style=for-the-badge" alt="Liquid Glass UI">
+  <img src="https://img.shields.io/badge/UI-iOS%20Liquid%20Glass%20(Slint)-FF6A1F?style=for-the-badge" alt="Liquid Glass UI">
+  <img src="https://img.shields.io/badge/Mode-No%20License%20%2F%20Offline-34C759?style=for-the-badge" alt="Offline Mode">
+  <img src="https://img.shields.io/badge/Assets-Pre--installed%20(26.3)-0A84FF?style=for-the-badge" alt="Pre-installed Assets">
+  <img src="https://img.shields.io/badge/Platform-Windows%20x64-4E73DF?style=for-the-badge" alt="Windows">
 </p>
 
 ---
 
-## 📌 О проекте (Форк Horizon Launcher)
+## ✨ Особенности
 
-**Horizon Offline Launcher** это независимый форк лаунчера **Horizon Launcher**, сфокусированный на максимальной автономности, простоте и отказе от внешних облачных зависимостей.
-
-### Ключевые отличия этого форка:
-
-* 🔓 **Работает без лицензии (No License / Offline):**
-  Полная свобода от учетных записей Microsoft, онлайн-авторизаций и проверки владения игрой. Достаточно просто ввести желаемый никнейм и запустить игру в один клик.
-
-* 📦 **Все ассеты уже встроены (Zero-Download):**
-  Никаких томительных загрузок гигабайтов ресурсов и библиотек при первом старте. Все текстуры, звуки, клиентские архивы и библиотеки версии 26.3 уже аккуратно упакованы внутри исполняемого файла. Запустил и сразу играешь, даже если на компьютере вообще отключен интернет!
-
-* 🚀 **100% чистый Rust + Slint:**
-  Лаунчер написан на языке Rust с использованием декларативного UI-фреймворка `Slint`. Он мгновенно открывается, потребляет минимум оперативной памяти и не создает лишней нагрузки на систему.
-
-* 🫧 **Дизайн iOS Liquid Glass:**
-  Многослойные полупрозрачные стеклянные панели с бликовыми кромками, атмосферным градиентным фоном, плавающей навигационной капсулой, встроенными шрифтами Google Sans и плавными анимациями.
-
-* ⚙️ **Полный контроль над JVM и памятью:**
-  Удобная настройка выделения оперативной памяти (от 2 до 16 ГБ), автопоиск Java в системе и гибкая передача аргументов запуска.
-
-* 🐧 **Кроссплатформенность:**
-  Одинаково стабильно работает на Windows 10/11 и всех современных дистрибутивах Linux (Ubuntu, Linux Mint, Debian, Arch, Void, Artix).
+* 🔓 **Полностью без лицензии (Offline Mode)**  
+  Никаких аккаунтов Microsoft и онлайн-авторизации — просто введи любой никнейм и нажми «Играть».
+* 📦 **Все ассеты встроены в один `.exe` (Zero-Download)**  
+  Клиент Horizon 26.3 и все 28 000+ ресурсов уже упакованы внутрь исполняемого файла. При первом запуске лаунчер автоматически распаковывает клиент — работает даже без интернета.
+* 🫧 **Интерфейс iOS Liquid Glass + 144 Гц анимации**  
+  Матовое полупрозрачное стекло, светлая и тёмная темы, нативная физическая пружина (`spring`) при перетаскивании капли в таб-баре и сегмент-контролах, плавные переходы на 144 Гц.
+* 🧩 **Встроенный каталог модов (GitHub)**  
+  Двухколоночная вкладка «Моды»: слева твои установленные моды с тумблером вкл/выкл и удалением, справа — онлайн-каталог из репозитория [horizon-mods](https://github.com/e04059631-lab/horizon-mods) со скачиванием в один клик.
+* ⚙️ **Гибкие настройки запуска**  
+  Быстрые профили производительности (`Эконом` / `Баланс` / `Ультра`), выбор ОЗУ и дальности прорисовки, пресеты разрешения, полноэкранный и творческий режимы, прямой вход на сервер и живая консоль логов с фильтрацией.
 
 ---
 
-## 🎮 Готовые сборки (Releases)
+## 📸 Скриншоты
 
-Готовые автономные сборки со всеми вшитыми ассетами опубликованы на странице **[Релиз v1.0.0](https://gitlab.com/wwerz1/horizon-offline/-/releases/v1.0.0)**:
+<p align="center">
+  <img src="assets/preview-home.png" alt="Главный экран Horizon Offline Launcher" width="49%">
+  <img src="assets/preview-mods.png" alt="Вкладка Моды и каталог" width="49%">
+</p>
+<p align="center">
+  <img src="assets/preview-settings.png" alt="Экран настроек" width="75%">
+</p>
 
-| ОС | Файл для скачивания | Размер | Особенности |
+---
+
+## 🎮 Скачать (Releases)
+
+Готовый автономный `.exe` со всеми встроенными ассетами Horizon 26.3 доступен на странице релизов:
+
+👉 **[Скачать Horizon Offline Launcher v2.0.0](https://github.com/e04059631-lab/horizon-offline-launcher/releases/tag/v2.0.0)**
+
+| Файл | Платформа | Размер | Описание |
 | :--- | :--- | :--- | :--- |
-| **Windows 10 / 11 (x64)** | 🪟 [horizon-launcher-windows-x64.exe](https://gitlab.com/api/v4/projects/88944111/packages/generic/horizon-launcher/v1.0.0/horizon-launcher-windows-x64.exe) | ~423 МБ | Портативный .exe, не требует установки. |
-| **Linux (x86_64)** | 🐧 [horizon-launcher-linux-x86_64](https://gitlab.com/api/v4/projects/88944111/packages/generic/horizon-launcher/v1.0.0/horizon-launcher-linux-x86_64) | ~428 МБ | Автономный бинарник для любого Linux-дистрибутива. |
+| **`horizon-offline-launcher.exe`** | Windows 10 / 11 (x64) | ~392 МБ | Полностью автономный портативный `.exe` со встроенным клиентом и ассетами 26.3 |
+
+---
+
+## 🧩 Каталог модов
+
+Официальный репозиторий модов: **[e04059631-lab/horizon-mods](https://github.com/e04059631-lab/horizon-mods)**  
+Адрес каталога также можно изменить прямо в лаунчере (**Настройки → Файлы клиента и каталог модов**).
 
 ---
 
 ## 🛠 Сборка из исходников
 
-Для самостоятельной компиляции лаунчера нужен установленный инструментарий Rust (`cargo` / `rustc`):
-
 ```bash
-# Клонировать репозиторий
 git clone https://github.com/e04059631-lab/horizon-offline-launcher.git
 cd horizon-offline-launcher
-
-# Собрать релиз
 cargo build --release
 ```
 
-Для сборки под Windows с иконкой и метаданными версии:
-```powershell
-.\build_release.ps1
-```
-
----
-
-## 📂 Структура репозитория
-
-```text
-horizon-offline/
-├── src/
-│   ├── main.rs              # Главное окно и точка входа eframe
-│   ├── config.rs            # Конфигурация и сохранение настроек
-│   ├── game_process.rs      # Управление процессом игры и JVM аргументами
-│   ├── client_unpacker.rs   # Модуль распаковки и проверки встроенных ресурсов
-│   └── ui_bridge.rs         # Мост графического интерфейса
-├── assets/                  # Иконки всех размеров (.ico, .png, .svg)
-├── .agents/skills/          # Спецификации стилизации Material 3
-├── build.rs                 # Скрипт компоновки ресурсов Windows
-├── build_release.ps1        # Релизная компиляция
-├── Cargo.toml               # Зависимости проекта
-├── LICENSE                  # Лицензия MIT
-└── README.md
-```
+Для упаковки собранного бинарника вместе с архивом ассетов (`HORIZON_PAYLOAD`) используется скрипт `pack_release.ps1`.
 
 ---
 
 ## ⚖️ Лицензия
 
-Исходный код распространяется под открытой лицензией [MIT](LICENSE).
-Minecraft является зарегистрированной торговой маркой Mojang Studios / Microsoft. Данный форк является независимым фанатским проектом.
+Исходный код распространяется под лицензией [MIT](LICENSE).  
+Minecraft является зарегистрированной торговой маркой Mojang Studios / Microsoft. Проект является независимым фанатским форком.
