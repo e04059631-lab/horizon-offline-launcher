@@ -21,6 +21,7 @@ struct CatalogState {
     downloading_ids: HashSet<String>,
     icons: HashMap<String, (u32, u32, Vec<u8>)>,
     query: String,
+    filter: i32, // 0 = all, 1 = shaders, 2 = resourcepacks/pvp
 }
 
 pub fn setup_ui_bridge(window: &AppWindow) {
@@ -208,6 +209,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let catalog_clone = Arc::clone(&catalog_state);
         window.on_toggle_mod(move |file_name| {
             let file_name_str = file_name.to_string();
+            let rp_path = game_dir_clone.join("resourcepacks").join(&file_name_str);
             if is_shader_file(&file_name_str) {
                 let current_picked = read_picked_shader_pack(&game_dir_clone);
                 if current_picked.eq_ignore_ascii_case(&file_name_str) {
@@ -215,6 +217,9 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 } else {
                     write_picked_shader_pack(&game_dir_clone, &file_name_str);
                 }
+            } else if rp_path.is_file() {
+                let currently_on = is_resource_pack_enabled(&game_dir_clone, &file_name_str);
+                set_resource_pack_enabled(&game_dir_clone, &file_name_str, !currently_on);
             } else {
                 let current_path = mods_dir_clone.join(&file_name_str);
                 if current_path.exists() {
@@ -240,6 +245,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         window.on_delete_mod(move |file_name| {
             let file_name_str = file_name.to_string();
             if let Some(clean) = Path::new(&file_name_str).file_name() {
+                let rp_path = game_dir_clone.join("resourcepacks").join(clean);
                 if is_shader_file(&file_name_str) {
                     let target_path = game_dir_clone.join("shaderpacks").join(clean);
                     if target_path.is_file() {
@@ -248,6 +254,9 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                     if read_picked_shader_pack(&game_dir_clone).eq_ignore_ascii_case(&file_name_str) {
                         write_picked_shader_pack(&game_dir_clone, "");
                     }
+                } else if rp_path.is_file() {
+                    let _ = fs::remove_file(&rp_path);
+                    set_resource_pack_enabled(&game_dir_clone, &file_name_str, false);
                 } else {
                     let target_path = mods_dir_clone.join(clean);
                     if target_path.is_file() {
@@ -303,6 +312,21 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let catalog_clone = Arc::clone(&catalog_state);
         let game_dir_clone = game_dir.clone();
         let mods_dir_clone = mods_dir.clone();
+        window.on_filter_catalog(move |filter_idx| {
+            {
+                let mut state = catalog_clone.lock().unwrap();
+                state.filter = filter_idx;
+            }
+            if let Some(w) = window_weak.upgrade() {
+                rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
+            }
+        });
+    }
+    {
+        let window_weak = window.as_weak();
+        let catalog_clone = Arc::clone(&catalog_state);
+        let game_dir_clone = game_dir.clone();
+        let mods_dir_clone = mods_dir.clone();
 
         window.on_download_mod(move |mod_id| {
             let mod_id_str = mod_id.to_string();
@@ -333,9 +357,11 @@ pub fn setup_ui_bridge(window: &AppWindow) {
             let mods_dir_bg = mods_dir_clone.clone();
 
             thread::spawn(move || {
-                let is_shader = is_shader_file(&remote_mod.file_name);
+                let (is_shader, is_rp) = mod_kind_flags(&remote_mod.kind, &remote_mod.file_name);
                 let target_dir = if is_shader {
                     game_dir_bg.join("shaderpacks")
+                } else if is_rp {
+                    game_dir_bg.join("resourcepacks")
                 } else {
                     mods_dir_bg.clone()
                 };
@@ -344,8 +370,12 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                     &remote_mod.file_name,
                     &remote_mod.download_url,
                 );
-                if res.is_ok() && is_shader {
-                    write_picked_shader_pack(&game_dir_bg, &remote_mod.file_name);
+                if res.is_ok() {
+                    if is_shader {
+                        write_picked_shader_pack(&game_dir_bg, &remote_mod.file_name);
+                    } else if is_rp {
+                        set_resource_pack_enabled(&game_dir_bg, &remote_mod.file_name, true);
+                    }
                 }
                 {
                     let mut state = catalog_bg.lock().unwrap();
@@ -545,15 +575,46 @@ fn spawn_fetch_catalog(
                 rebuild_catalog_ui(&w, &catalog_for_ui, &game_dir_for_ui, &mods_dir_for_ui);
             });
 
-            // Fetch mod icons asynchronously into cache & refresh UI once ready
+            // Fetch mod icons in 6 parallel worker threads for snappy loading of 50+ icons
             if !icon_jobs.is_empty() {
+                let queue = Arc::new(Mutex::new(icon_jobs.into_iter()));
+                let mut handles = Vec::new();
+                for _ in 0..6 {
+                    let q = Arc::clone(&queue);
+                    let cache_dir = icon_cache_dir.clone();
+                    let state_arc = Arc::clone(&catalog_state);
+                    let w_weak = window_weak.clone();
+                    let g_dir = game_dir.clone();
+                    let m_dir = mods_dir.clone();
+                    handles.push(thread::spawn(move || {
+                        let mut loaded_in_worker = 0usize;
+                        loop {
+                            let next = { q.lock().unwrap().next() };
+                            let Some((id, icon_url)) = next else { break };
+                            if let Some(rgba) =
+                                mod_catalog::fetch_icon_cached(&cache_dir, &id, &icon_url)
+                            {
+                                {
+                                    let mut state = state_arc.lock().unwrap();
+                                    state.icons.insert(id, rgba);
+                                }
+                                loaded_in_worker += 1;
+                                if loaded_in_worker % 6 == 0 {
+                                    let c = Arc::clone(&state_arc);
+                                    let gd = g_dir.clone();
+                                    let md = m_dir.clone();
+                                    let _ = w_weak.upgrade_in_event_loop(move |w| {
+                                        rebuild_catalog_ui(&w, &c, &gd, &md);
+                                    });
+                                }
+                            }
+                        }
+                        loaded_in_worker > 0
+                    }));
+                }
                 let mut any_loaded = false;
-                for (id, icon_url) in icon_jobs {
-                    if let Some(rgba) =
-                        mod_catalog::fetch_icon_cached(&icon_cache_dir, &id, &icon_url)
-                    {
-                        let mut state = catalog_state.lock().unwrap();
-                        state.icons.insert(id, rgba);
+                for h in handles {
+                    if let Ok(true) = h.join() {
                         any_loaded = true;
                     }
                 }
@@ -590,11 +651,19 @@ fn rebuild_catalog_ui(
         .mods
         .iter()
         .filter(|m| {
-            q.is_empty()
+            let (is_shader, is_rp) = mod_kind_flags(&m.kind, &m.file_name);
+            let cat_ok = match state.filter {
+                1 => is_shader,
+                2 => is_rp,
+                _ => true,
+            };
+            let search_ok = q.is_empty()
                 || m.name.to_lowercase().contains(&q)
-                || m.description.to_lowercase().contains(&q)
+                || m.description.to_lowercase().contains(&q);
+            cat_ok && search_ok
         })
         .map(|m| {
+            let (is_shader, is_rp) = mod_kind_flags(&m.kind, &m.file_name);
             let installed = installed_files.contains(&m.file_name.to_lowercase());
             let downloading = state.downloading_ids.contains(&m.id);
             let (has_icon, icon) = match state.icons.get(&m.id) {
@@ -616,6 +685,8 @@ fn rebuild_catalog_ui(
                 downloading,
                 has_icon,
                 icon,
+                is_shader,
+                is_resourcepack: is_rp,
             }
         })
         .collect();
@@ -672,9 +743,86 @@ fn write_picked_shader_pack(game_dir: &Path, pack_name: &str) {
     }
 }
 
+fn mod_kind_flags(kind_str: &str, file_name: &str) -> (bool, bool) {
+    let is_shader = kind_str.eq_ignore_ascii_case("shader") || is_shader_file(file_name);
+    let base = file_name.strip_suffix(".disabled").unwrap_or(file_name);
+    let is_zip = Path::new(base)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("zip"))
+        .unwrap_or(false);
+    let is_rp = !is_shader && (kind_str.eq_ignore_ascii_case("resourcepack") || is_zip);
+    (is_shader, is_rp)
+}
+
+fn read_enabled_resource_packs(game_dir: &Path) -> Vec<String> {
+    let opt_path = game_dir.join("options.txt");
+    let Ok(content) = fs::read_to_string(&opt_path) else {
+        return vec!["vanilla".to_string()];
+    };
+    for line in content.lines() {
+        if let Some(raw_json) = line.strip_prefix("resourcePacks:") {
+            if let Ok(list) = serde_json::from_str::<Vec<String>>(raw_json.trim()) {
+                return list;
+            }
+        }
+    }
+    vec!["vanilla".to_string()]
+}
+
+fn is_resource_pack_enabled(game_dir: &Path, file_name: &str) -> bool {
+    let entry = format!("file/{file_name}");
+    read_enabled_resource_packs(game_dir)
+        .iter()
+        .any(|p| p.eq_ignore_ascii_case(&entry) || p.eq_ignore_ascii_case(file_name))
+}
+
+fn set_resource_pack_enabled(game_dir: &Path, file_name: &str, enable: bool) {
+    let mut packs = read_enabled_resource_packs(game_dir);
+    let entry = format!("file/{file_name}");
+    packs.retain(|p| !p.eq_ignore_ascii_case(&entry) && !p.eq_ignore_ascii_case(file_name));
+    if !packs.iter().any(|p| p == "vanilla") {
+        packs.insert(0, "vanilla".to_string());
+    }
+    if enable {
+        packs.push(entry);
+    }
+
+    let serialized = serde_json::to_string(&packs).unwrap_or_else(|_| "[\"vanilla\"]".to_string());
+    let target_line = format!("resourcePacks:{serialized}");
+    let opt_path = game_dir.join("options.txt");
+
+    if let Ok(content) = fs::read_to_string(&opt_path) {
+        let mut found = false;
+        let mut lines: Vec<String> = content
+            .lines()
+            .map(|l| {
+                if l.starts_with("resourcePacks:") {
+                    found = true;
+                    target_line.clone()
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect();
+        if !found {
+            lines.push(target_line);
+        }
+        let mut out = lines.join("\n");
+        out.push('\n');
+        let _ = fs::write(&opt_path, out);
+    } else {
+        let _ = fs::write(&opt_path, format!("version:5023\nlang:ru_ru\n{target_line}\n"));
+    }
+}
+
 fn installed_mod_base_names(game_dir: &Path, mods_dir: &Path) -> HashSet<String> {
     let mut set = HashSet::new();
-    for dir in [mods_dir.to_path_buf(), game_dir.join("shaderpacks")] {
+    for dir in [
+        mods_dir.to_path_buf(),
+        game_dir.join("shaderpacks"),
+        game_dir.join("resourcepacks"),
+    ] {
         if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
                 let p = entry.path();
@@ -780,6 +928,7 @@ fn ensure_game_dirs(config: &LauncherConfig) -> (PathBuf, PathBuf, PathBuf, Path
     let _ = fs::create_dir_all(&game_dir);
     let _ = fs::create_dir_all(&mods_dir);
     let _ = fs::create_dir_all(game_dir.join("shaderpacks"));
+    let _ = fs::create_dir_all(game_dir.join("resourcepacks"));
     let _ = fs::create_dir_all(&saves_dir);
     let _ = fs::create_dir_all(&screenshots_dir);
 
@@ -837,12 +986,13 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
                     size_kb,
                     enabled,
                     is_shader: false,
+                    is_resourcepack: false,
                 });
             }
         }
     }
 
-    // Also scan Horizon native shader packs (.hshader) in <game_dir>/shaderpacks/
+    // Scan Horizon native shader packs (.hshader) in <game_dir>/shaderpacks/
     let shader_dir = game_dir.join("shaderpacks");
     let picked_shader = read_picked_shader_pack(game_dir);
     if let Ok(entries) = fs::read_dir(&shader_dir) {
@@ -873,6 +1023,47 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
                     size_kb,
                     enabled,
                     is_shader: true,
+                    is_resourcepack: false,
+                });
+            }
+        }
+    }
+
+    // Scan client-side PvP / QoL resourcepacks (.zip) in <game_dir>/resourcepacks/
+    let rp_dir = game_dir.join("resourcepacks");
+    let enabled_rps = read_enabled_resource_packs(game_dir);
+    if let Ok(entries) = fs::read_dir(&rp_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_file() {
+                continue;
+            }
+            let file_name = p
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+
+            let ext = p
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+
+            if ext == "zip" {
+                let raw_len = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                let size_kb = if raw_len == 0 { 0 } else { raw_len.div_ceil(1024) as i32 };
+                let rp_key = format!("file/{file_name}");
+                let enabled = enabled_rps
+                    .iter()
+                    .any(|item| item.eq_ignore_ascii_case(&rp_key) || item.eq_ignore_ascii_case(&file_name));
+                mods.push(ModInfo {
+                    name: file_name.clone().into(),
+                    file_name: file_name.into(),
+                    size_kb,
+                    enabled,
+                    is_shader: false,
+                    is_resourcepack: true,
                 });
             }
         }

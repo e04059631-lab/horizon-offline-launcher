@@ -30,6 +30,7 @@ export struct ModInfo {
     size-kb: int,
     enabled: bool,
     is-shader: bool,
+    is-resourcepack: bool,
 }
 
 export struct CatalogModInfo {
@@ -43,6 +44,8 @@ export struct CatalogModInfo {
     downloading: bool,
     has-icon: bool,
     icon: image,
+    is-shader: bool,
+    is-resourcepack: bool,
 }
 
 export struct LogEntry {
@@ -95,6 +98,7 @@ export component AppWindow inherits Window {
     in-out property <bool> catalog-loading: false;
     in-out property <string> catalog-error: "";
     in-out property <string> catalog-search: "";
+    in-out property <int> catalog-filter: 0;
     in-out property <string> mods-repo-url: "";
     in-out property <[LogEntry]> log-lines: [];
 
@@ -125,6 +129,7 @@ export component AppWindow inherits Window {
     callback delete-mod(string);
     callback refresh-catalog();
     callback search-catalog(string);
+    callback filter-catalog(int);
     callback download-mod(string);
     callback save-settings();
     callback set-nickname(string);
@@ -749,10 +754,12 @@ export component AppWindow inherits Window {
                                                     background: item.enabled
                                                         ? (item.is-shader
                                                             ? @linear-gradient(135deg, #5AC8FA 0%, #5856D6 100%)
-                                                            : @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%))
+                                                            : (item.is-resourcepack
+                                                                ? @linear-gradient(135deg, #34C759 0%, #0D9488 100%)
+                                                                : @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%)))
                                                         : @linear-gradient(135deg, #8E8E93 0%, #636366 100%);
                                                     Icon {
-                                                        text: item.is-shader ? "\u{e3a5}" : "\u{e87b}";
+                                                        text: item.is-shader ? "\u{e3a5}" : (item.is-resourcepack ? "\u{e3ae}" : "\u{e87b}");
                                                         font-size: 20px;
                                                         color: #FFFFFF;
                                                     }
@@ -772,7 +779,7 @@ export component AppWindow inherits Window {
                                                     animate color { duration: 160ms; }
                                                 }
                                                 Text {
-                                                    text: (item.is-shader ? "Шейдер · " : "") + "\{item.size-kb} КБ · " + (item.enabled ? "включён" : "выключен");
+                                                    text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "PvP / Пак · " : "Мод · ")) + "\{item.size-kb} КБ · " + (item.enabled ? "включён" : "выключен");
                                                     font-size: 11px;
                                                     color: Theme.text-muted;
                                                 }
@@ -863,8 +870,17 @@ export component AppWindow inherits Window {
                             Field {
                                 icon: "\u{e8b6}";
                                 text <=> root.catalog-search;
-                                placeholder: "Поиск модов...";
+                                placeholder: "Поиск среди 50+ шейдеров и PvP-модов...";
                                 edited => { root.search-catalog(root.catalog-search); }
+                            }
+
+                            LiquidSegmented3 {
+                                stretch: true;
+                                label0: "Все";
+                                label1: "Шейдеры";
+                                label2: "PvP и паки";
+                                selected <=> root.catalog-filter;
+                                changed(idx) => { root.filter-catalog(idx); }
                             }
 
                             if root.catalog-error != "": Rectangle {
@@ -1017,7 +1033,7 @@ export component AppWindow inherits Window {
                                                 }
 
                                                 if cmod.size-kb > 0: Text {
-                                                    text: "\{cmod.size-kb} КБ";
+                                                    text: (cmod.is-shader ? "Шейдер · " : (cmod.is-resourcepack ? "PvP / Пак · " : "Мод · ")) + "\{cmod.size-kb} КБ";
                                                     font-size: 10.5px;
                                                     color: Theme.text-muted;
                                                 }

@@ -27,6 +27,8 @@ pub struct RemoteMod {
     pub description: String,
     #[serde(default)]
     pub version: String,
+    #[serde(default)]
+    pub kind: String,
     pub file_name: String,
     pub download_url: String,
     #[serde(default)]
@@ -268,7 +270,7 @@ mod tests {
         let url = "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json";
         let (resolved, mods) = fetch_catalog(url).expect("catalog fetch should succeed over HTTPS");
         assert_eq!(resolved, url);
-        assert!(!mods.is_empty(), "catalog should contain Motion Blur");
+        assert!(mods.len() >= 51, "catalog should contain all 51 mods, got {}", mods.len());
         assert_eq!(mods[0].id, "motion-blur");
         let tmp_cache = std::env::temp_dir().join("horizon_test_icon_cache");
         let icon = fetch_icon_cached(&tmp_cache, &mods[0].id, &mods[0].icon_url);
