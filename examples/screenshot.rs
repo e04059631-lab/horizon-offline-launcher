@@ -37,8 +37,8 @@ fn main() {
     app.set_has_embedded_payload(true);
     app.set_mods_repo_url("https://github.com/wwerz1/horizon-mods".into());
     app.set_mods(ModelRc::new(VecModel::from(vec![
-        ModInfo { name: "sodium-horizon.hmod".into(), file_name: "sodium-horizon.hmod".into(), size_kb: 812, enabled: true },
-        ModInfo { name: "shaders-lite.zip".into(), file_name: "shaders-lite.zip.disabled".into(), size_kb: 5120, enabled: false },
+        ModInfo { name: "motion-blur.hshader".into(), file_name: "motion-blur.hshader".into(), size_kb: 2, enabled: true, is_shader: true },
+        ModInfo { name: "sodium-horizon.hmod".into(), file_name: "sodium-horizon.hmod".into(), size_kb: 812, enabled: true, is_shader: false },
     ])));
     app.set_active_mods_count(1);
     app.set_total_mods_count(2);

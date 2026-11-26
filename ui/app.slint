@@ -29,6 +29,7 @@ export struct ModInfo {
     file-name: string,
     size-kb: int,
     enabled: bool,
+    is-shader: bool,
 }
 
 export struct CatalogModInfo {
@@ -656,7 +657,7 @@ export component AppWindow inherits Window {
                                         animate color { duration: 200ms; }
                                     }
                                     Text {
-                                        text: "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hmod .jar .zip";
+                                        text: "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hmod .hshader .jar .zip";
                                         font-size: 12px;
                                         color: Theme.text-muted;
                                         animate color { duration: 200ms; }
@@ -746,10 +747,12 @@ export component AppWindow inherits Window {
                                                     height: 38px;
                                                     border-radius: 12px;
                                                     background: item.enabled
-                                                        ? @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%)
+                                                        ? (item.is-shader
+                                                            ? @linear-gradient(135deg, #5AC8FA 0%, #5856D6 100%)
+                                                            : @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%))
                                                         : @linear-gradient(135deg, #8E8E93 0%, #636366 100%);
                                                     Icon {
-                                                        text: "\u{e87b}";
+                                                        text: item.is-shader ? "\u{e3a5}" : "\u{e87b}";
                                                         font-size: 20px;
                                                         color: #FFFFFF;
                                                     }
@@ -769,7 +772,7 @@ export component AppWindow inherits Window {
                                                     animate color { duration: 160ms; }
                                                 }
                                                 Text {
-                                                    text: item.enabled ? "\{item.size-kb} КБ · включён" : "\{item.size-kb} КБ · выключен";
+                                                    text: (item.is-shader ? "Шейдер · " : "") + "\{item.size-kb} КБ · " + (item.enabled ? "включён" : "выключен");
                                                     font-size: 11px;
                                                     color: Theme.text-muted;
                                                 }
