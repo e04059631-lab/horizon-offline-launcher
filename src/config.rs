@@ -99,8 +99,19 @@ impl LauncherConfig {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
                 if let Ok(mut config) = serde_json::from_str::<LauncherConfig>(&content) {
+                    let mut migrated = false;
                     if config.username == "Player" {
                         config.username = String::new();
+                        migrated = true;
+                    }
+                    if config.mods_repo_url.trim().is_empty()
+                        || config.mods_repo_url.contains("wwerz1/horizon-mods")
+                    {
+                        config.mods_repo_url = default_mods_repo_url();
+                        migrated = true;
+                    }
+                    if migrated {
+                        config.save();
                     }
                     return config;
                 }

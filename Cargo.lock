@@ -1738,6 +1738,7 @@ dependencies = [
  "dirs",
  "flate2",
  "image",
+ "native-tls",
  "serde",
  "serde_json",
  "slint",

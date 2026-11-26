@@ -15,6 +15,7 @@ tar = "0.4.46"
 flate2 = "1.1.10"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 ureq = { version = "2.12", default-features = false, features = ["native-tls", "json"] }
+native-tls = "0.2"
 
 [build-dependencies]
 slint-build = "1.18.1"

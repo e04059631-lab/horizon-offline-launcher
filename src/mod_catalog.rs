@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,12 +93,33 @@ pub fn resolve_asset_url(catalog_url: &str, asset_url: &str) -> String {
     format!("{base}{}", trimmed.trim_start_matches('/'))
 }
 
+fn build_agent(connect_secs: u64, read_secs: u64) -> ureq::Agent {
+    let mut builder = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(connect_secs))
+        .timeout_read(Duration::from_secs(read_secs))
+        .user_agent("Horizon-Offline-Launcher/1.0");
+
+    if let Ok(tls) = native_tls::TlsConnector::new() {
+        builder = builder.tls_connector(Arc::new(tls));
+    }
+
+    // Honor standard HTTP(S)_PROXY environment variables if configured
+    let proxy_env = std::env::var("HTTPS_PROXY")
+        .or_else(|_| std::env::var("https_proxy"))
+        .or_else(|_| std::env::var("HTTP_PROXY"))
+        .or_else(|_| std::env::var("http_proxy"))
+        .ok();
+    if let Some(proxy_str) = proxy_env {
+        if let Ok(proxy) = ureq::Proxy::new(&proxy_str) {
+            builder = builder.proxy(proxy);
+        }
+    }
+
+    builder.build()
+}
+
 fn http_agent() -> ureq::Agent {
-    ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_secs(8))
-        .timeout_read(Duration::from_secs(30))
-        .user_agent("Horizon-Offline-Launcher/1.0")
-        .build()
+    build_agent(8, 30)
 }
 
 /// Fetches and parses `catalog.json` from the normalized URL.
@@ -114,8 +136,8 @@ pub fn fetch_catalog(raw_url: &str) -> Result<(String, Vec<RemoteMod>), String> 
                 .to_string()
         }
         ureq::Error::Status(code, _) => format!("Сервер модов вернул ошибку HTTP {code}"),
-        ureq::Error::Transport(_) => {
-            "Нет подключения к интернету или сервер недоступен".to_string()
+        ureq::Error::Transport(t) => {
+            format!("Нет подключения к интернету или сервер недоступен ({})", t.kind())
         }
     })?;
 
@@ -151,11 +173,7 @@ pub fn fetch_icon_cached(
     let raw_bytes = if cached_path.exists() {
         fs::read(&cached_path).ok()
     } else {
-        let agent = ureq::AgentBuilder::new()
-            .timeout_connect(Duration::from_secs(5))
-            .timeout_read(Duration::from_secs(10))
-            .user_agent("Horizon-Offline-Launcher/1.0")
-            .build();
+        let agent = build_agent(5, 10);
 
         match agent.get(icon_url).call() {
             Ok(resp) => {
@@ -193,11 +211,7 @@ pub fn download_mod_file(mods_dir: &Path, file_name: &str, download_url: &str) -
     let final_path = mods_dir.join(clean_name);
     let part_path = mods_dir.join(format!("{clean_name}.part"));
 
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_secs(10))
-        .timeout_read(Duration::from_secs(120))
-        .user_agent("Horizon-Offline-Launcher/1.0")
-        .build();
+    let agent = build_agent(10, 120);
 
     let resp = agent
         .get(download_url)
@@ -243,4 +257,22 @@ pub fn download_mod_file(mods_dir: &Path, file_name: &str, download_url: &str) -
         .map_err(|e| format!("Не удалось сохранить мод: {e}"))?;
 
     Ok(final_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fetch_live_github_catalog() {
+        let url = "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json";
+        let (resolved, mods) = fetch_catalog(url).expect("catalog fetch should succeed over HTTPS");
+        assert_eq!(resolved, url);
+        assert!(!mods.is_empty(), "catalog should contain Motion Blur");
+        assert_eq!(mods[0].id, "motion-blur");
+        let tmp_cache = std::env::temp_dir().join("horizon_test_icon_cache");
+        let icon = fetch_icon_cached(&tmp_cache, &mods[0].id, &mods[0].icon_url);
+        assert!(icon.is_some(), "icon download and decode should succeed");
+        let _ = fs::remove_dir_all(&tmp_cache);
+    }
 }
