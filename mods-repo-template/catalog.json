@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "mods": [
+    {
+      "id": "sodium-horizon",
+      "name": "Sodium Horizon",
+      "description": "Повышает FPS и оптимизирует рендеринг чанков для Horizon 26.3.",
+      "version": "1.0.0",
+      "file_name": "sodium-horizon.hmod",
+      "download_url": "mods/sodium-horizon.hmod",
+      "icon_url": "icons/sodium-horizon.png",
+      "size_kb": 812
+    },
+    {
+      "id": "xaero-minimap",
+      "name": "Horizon Minimap",
+      "description": "Удобная мини-карта с метками, координатами и картой мира.",
+      "version": "2.1.0",
+      "file_name": "horizon-minimap.hmod",
+      "download_url": "mods/horizon-minimap.hmod",
+      "icon_url": "icons/horizon-minimap.png",
+      "size_kb": 1540
+    }
+  ]
+}

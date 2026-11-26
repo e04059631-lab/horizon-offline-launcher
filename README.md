@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Автономный оффлайн-форк Horizon Launcher на Rust с интерфейсом Material 3 Dark под версию 26.3.</strong>
+  <strong>Автономный оффлайн-форк Horizon Launcher на Rust с интерфейсом iOS Liquid Glass (Slint) под версию 26.3.</strong>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/License-No%20License%20Required-00b894?style=for-the-badge" alt="No License">
   <img src="https://img.shields.io/badge/Assets-Pre--installed%20%28Zero%20Download%29-F57C00?style=for-the-badge" alt="Pre-installed Assets">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-4E73DF?style=for-the-badge" alt="Platforms">
-  <img src="https://img.shields.io/badge/UI-Material%203%20egui-7D5260?style=for-the-badge" alt="Material 3">
+  <img src="https://img.shields.io/badge/UI-iOS%20Liquid%20Glass%20(Slint)-7CC6FE?style=for-the-badge" alt="Liquid Glass UI">
 </p>
 
 ---
@@ -31,11 +31,11 @@
 * 📦 **Все ассеты уже встроены (Zero-Download):**
   Никаких томительных загрузок гигабайтов ресурсов и библиотек при первом старте. Все текстуры, звуки, клиентские архивы и библиотеки версии 26.3 уже аккуратно упакованы внутри исполняемого файла. Запустил и сразу играешь, даже если на компьютере вообще отключен интернет!
 
-* 🚀 **100% чистый Rust:**
-  Лаунчер написан на языке Rust с использованием графического фреймворка `egui` / `eframe`. Он мгновенно открывается, потребляет меньше 40 МБ оперативной памяти и не создает лишней нагрузки на систему.
+* 🚀 **100% чистый Rust + Slint:**
+  Лаунчер написан на языке Rust с использованием декларативного UI-фреймворка `Slint`. Он мгновенно открывается, потребляет минимум оперативной памяти и не создает лишней нагрузки на систему.
 
-* 🎨 **Дизайн Material 3 Dark (Golden Hour):**
-  Современный адаптивный интерфейс с мягкими акцентами, скругленными карточками настроек и встроенными шрифтами Google Sans.
+* 🫧 **Дизайн iOS Liquid Glass:**
+  Многослойные полупрозрачные стеклянные панели с бликовыми кромками, атмосферным градиентным фоном, плавающей навигационной капсулой, встроенными шрифтами Google Sans и плавными анимациями.
 
 * ⚙️ **Полный контроль над JVM и памятью:**
   Удобная настройка выделения оперативной памяти (от 2 до 16 ГБ), автопоиск Java в системе и гибкая передача аргументов запуска.
@@ -62,8 +62,8 @@
 
 ```bash
 # Клонировать репозиторий
-git clone git@gitlab.com:wwerz1/horizon-offline.git
-cd horizon-offline
+git clone https://github.com/e04059631-lab/horizon-offline-launcher.git
+cd horizon-offline-launcher
 
 # Собрать релиз
 cargo build --release

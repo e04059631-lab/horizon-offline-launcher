@@ -1,3 +1,8 @@
-$env:PATH = "G:\mingw64\bin;C:\Users\7ims (Admin)\.cargo\bin;" + $env:PATH
-Set-Location "C:\Users\7ims (Admin)\horizon-offline-launcher"
+Set-Location $PSScriptRoot
+if (Test-Path "$env:USERPROFILE\tools\w64devkit\bin") {
+    $env:PATH = "$env:USERPROFILE\tools\w64devkit\bin;$env:PATH"
+}
+if (Test-Path "$env:USERPROFILE\.cargo\bin") {
+    $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+}
 cargo check

@@ -4,4 +4,5 @@
 *.pdb
 *.zip
 *.exe
+*.packing
 launcher_config.json

@@ -1,0 +1,63 @@
+// Horizon Offline Launcher — iOS 26 Liquid Glass design tokens (Light & Dark, High-FPS)
+
+export global Backdrop {
+    in-out property <image> sharp;
+    in-out property <image> blurred;
+    in-out property <length> win-width: 1100px;
+    in-out property <length> win-height: 720px;
+}
+
+export global Theme {
+    in-out property <bool> dark: false;
+
+    // Labels
+    out property <color> text-primary: dark ? #F5F5F7 : #1C1C1E;
+    out property <color> text-secondary: dark ? #EBEBF5BA : #3C3C43D0;
+    out property <color> text-muted: dark ? #EBEBF57A : #3C3C4399;
+    out property <color> text-on-accent: #FFFFFF;
+
+    // Accents
+    out property <color> accent: #FF6A1F;
+    out property <color> accent-label: dark ? #FF9F68 : #D9480F;
+    out property <color> blue: dark ? #409CFF : #0A84FF;
+    out property <color> green: dark ? #32D74B : #34C759;
+    out property <color> red: dark ? #FF453A : #FF3B30;
+    out property <color> amber: dark ? #FF9F0A : #FF9500;
+
+    // Fills & tracks
+    out property <color> fill: dark ? #FFFFFF14 : #7878801C;
+    out property <color> fill-strong: dark ? #FFFFFF26 : #78788032;
+
+    // Clean Glass surfaces (single texture + calm tint, zero glare)
+    out property <color> glass-regular: dark ? #0C0F18B0 : #FFFFFF6E;
+    out property <color> glass-hero: dark ? #0A0D16A6 : #FFFFFF60;
+    out property <color> glass-thick: dark ? #121622D8 : #FFFFFFBC;
+    out property <color> glass-hover: dark ? #1B2030C8 : #FFFFFF98;
+
+    // Ultra-subtle outer card edge (never glaring)
+    out property <color> glass-rim-color: dark ? #FFFFFF10 : #FFFFFF45;
+
+    // Inner surfaces (clean borderless look in dark mode)
+    out property <color> inner-tile: dark ? #FFFFFF12 : #FFFFFF5E;
+    out property <color> inner-tile-hover: dark ? #FFFFFF20 : #FFFFFF90;
+    out property <color> inner-tile-disabled: dark ? #FFFFFF08 : #FFFFFF30;
+    out property <color> inner-border: dark ? #FFFFFF00 : #FFFFFF33;
+
+    // Inputs & chips (no bright white borders)
+    out property <color> field-bg: dark ? #090C1494 : #FFFFFF7E;
+    out property <color> field-bg-focus: dark ? #121726D4 : #FFFFFFD0;
+    out property <color> field-border: dark ? #FFFFFF16 : #FFFFFF66;
+    out property <color> chip-bg: dark ? #FFFFFF18 : #FFFFFF88;
+    out property <color> badge-pill-bg: dark ? #FFFFFF18 : #FFFFFFA8;
+
+    // Sliding liquid glass droplet (clean, glare-free)
+    out property <color> droplet-bg: dark ? #FFFFFF24 : #FFFFFFE6;
+    out property <color> droplet-drag-bg: dark ? #FFFFFF32 : #FFFFFFF5;
+    out property <color> droplet-hover: dark ? #FFFFFF10 : #FFFFFF3D;
+
+    // Console & overlays
+    out property <color> console-bg: dark ? #090C14AD : #FFFFFF80;
+    out property <color> overlay-scrim-on: dark ? #0000007A : #00000048;
+    out property <color> overlay-scrim-off: #00000000;
+    out property <color> wallpaper-dim: dark ? #0709116E : #00000000;
+}

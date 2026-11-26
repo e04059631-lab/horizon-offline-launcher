@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub fn default_mods_repo_url() -> String {
+    "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherConfig {
     pub username: String,
@@ -13,6 +17,14 @@ pub struct LauncherConfig {
     pub creative_mode: bool,
     pub custom_game_dir: Option<String>,
     pub custom_version_dir: Option<String>,
+    #[serde(default)]
+    pub last_server: String,
+    #[serde(default)]
+    pub recent_nicknames: Vec<String>,
+    #[serde(default)]
+    pub dark_mode: bool,
+    #[serde(default = "default_mods_repo_url")]
+    pub mods_repo_url: String,
 }
 
 impl Default for LauncherConfig {
@@ -27,6 +39,10 @@ impl Default for LauncherConfig {
             creative_mode: false,
             custom_game_dir: None,
             custom_version_dir: None,
+            last_server: String::new(),
+            recent_nicknames: Vec::new(),
+            dark_mode: false,
+            mods_repo_url: default_mods_repo_url(),
         }
     }
 }

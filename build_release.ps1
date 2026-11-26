@@ -1,17 +1,16 @@
 # Build Release script
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
-Write-Host "==> Building Horizon Offline Launcher (Release)..." -ForegroundColor Cyan
+Write-Host "==> Building Horizon Offline Launcher (Release, iOS Liquid Glass UI)..." -ForegroundColor Cyan
 
-$mingwBin = "G:\mingw64\bin"
-if (Test-Path $mingwBin) {
-    $env:PATH = "$mingwBin;C:\Users\7ims (Admin)\.cargo\bin;$env:PATH"
-} else {
-    $env:PATH = "C:\Users\7ims (Admin)\.cargo\bin;$env:PATH"
+if (Test-Path "$env:USERPROFILE\tools\w64devkit\bin") {
+    $env:PATH = "$env:USERPROFILE\tools\w64devkit\bin;$env:PATH"
+}
+if (Test-Path "$env:USERPROFILE\.cargo\bin") {
+    $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 }
 
 cargo build --release
-python .\embed_icon_pe.py
 
 $builtExe = ".\target\release\horizon-offline-launcher.exe"
 if (Test-Path $builtExe) {
@@ -19,4 +18,5 @@ if (Test-Path $builtExe) {
     Write-Host "[OK] Release binary built and copied to root: .\horizon-offline-launcher.exe" -ForegroundColor Green
 } else {
     Write-Host "[ERROR] Binary not found at $builtExe" -ForegroundColor Red
+    exit 1
 }

@@ -1,0 +1,1684 @@
+import { ScrollView } from "std-widgets.slint";
+import { Backdrop, Theme } from "theme.slint";
+import {
+    Icon,
+    Glass,
+    GlassButton,
+    ThemeToggleButton,
+    LiquidTabBar,
+    LiquidSegmented4,
+    LiquidSegmented3,
+    Toggle,
+    Slider,
+    Field,
+    Chip,
+    StatTile,
+    FolderTile,
+    SettingRow,
+} from "components.slint";
+
+import "../src/GoogleSans-Regular.ttf";
+import "../src/GoogleSans-Medium.ttf";
+import "../src/GoogleSans-Bold.ttf";
+import "../src/MaterialIcons-Regular.ttf";
+
+export { Backdrop, Theme } from "theme.slint";
+
+export struct ModInfo {
+    name: string,
+    file-name: string,
+    size-kb: int,
+    enabled: bool,
+}
+
+export struct CatalogModInfo {
+    id: string,
+    name: string,
+    description: string,
+    version: string,
+    file-name: string,
+    size-kb: int,
+    installed: bool,
+    downloading: bool,
+    has-icon: bool,
+    icon: image,
+}
+
+export struct LogEntry {
+    text: string,
+    color: color,
+    level: int, // 0 = info, 1 = warn, 2 = error
+}
+
+export component AppWindow inherits Window {
+    title: "Horizon Offline — 26.3";
+    icon: @image-url("../assets/icon-256.png");
+    default-font-family: "Google Sans";
+    preferred-width: 1100px;
+    preferred-height: 720px;
+    min-width: 940px;
+    min-height: 640px;
+    background: Theme.dark ? #11131A : #C9A68A;
+
+    init => {
+        Backdrop.win-width = self.width;
+        Backdrop.win-height = self.height;
+    }
+    changed width => { Backdrop.win-width = self.width; }
+    changed height => { Backdrop.win-height = self.height; }
+
+    // Navigation state
+    in-out property <int> active-tab: 0; // 0 Home, 1 Mods, 2 Settings, 3 Console
+    property <int> log-filter: 0; // 0 all, 1 warn+, 2 errors
+
+    // Launcher state (synced with Rust ui_bridge)
+    in-out property <string> nickname: "";
+    in-out property <int> ram-gb: 4;
+    in-out property <int> render-distance: 12;
+    in-out property <int> window-width: 1280;
+    in-out property <int> window-height: 720;
+    in-out property <bool> fullscreen: false;
+    in-out property <bool> creative-mode: false;
+    in-out property <bool> dark-mode: false;
+    in-out property <string> server-address: "";
+    in-out property <bool> is-playing: false;
+    in-out property <string> mods-dir-path: "";
+    in-out property <bool> client-ready: false;
+    in-out property <bool> has-embedded-payload: false;
+    in-out property <[string]> recent-nicknames: [];
+
+    in-out property <[ModInfo]> mods: [];
+    in-out property <int> active-mods-count: 0;
+    in-out property <int> total-mods-count: 0;
+    in-out property <[CatalogModInfo]> catalog-mods: [];
+    in-out property <bool> catalog-loading: false;
+    in-out property <string> catalog-error: "";
+    in-out property <string> catalog-search: "";
+    in-out property <string> mods-repo-url: "";
+    in-out property <[LogEntry]> log-lines: [];
+
+    in-out property <string> edit-nickname: "";
+    in-out property <bool> play-after-nickname: false;
+    in-out property <bool> show-account-dialog: false;
+
+    in-out property <string> status-text: "";
+    in-out property <bool> status-is-error: false;
+    in-out property <bool> has-status-message: false;
+
+    in-out property <bool> is-unpacking: false;
+    in-out property <float> unpack-progress: 0.0;
+    in-out property <string> unpack-status: "Подготовка к распаковке...";
+    in-out property <string> unpack-percent-text: "0%";
+    in-out property <string> unpack-time-left: "";
+    in-out property <bool> unpack-has-error: false;
+    in-out property <string> unpack-error-text: "";
+
+    callback play();
+    callback stop();
+    callback open-mods-folder();
+    callback open-saves-folder();
+    callback open-screenshots-folder();
+    callback open-game-folder();
+    callback refresh-mods();
+    callback toggle-mod(string);
+    callback delete-mod(string);
+    callback refresh-catalog();
+    callback search-catalog(string);
+    callback download-mod(string);
+    callback save-settings();
+    callback set-nickname(string);
+    callback clear-log();
+    callback repair-client();
+    callback retry-unpack();
+
+    function resolution-index() -> int {
+        if root.window-width == 1600 && root.window-height == 900 { return 1; }
+        if root.window-width == 1920 && root.window-height == 1080 { return 2; }
+        if root.window-width == 2560 && root.window-height == 1440 { return 3; }
+        return 0;
+    }
+
+    function perf-preset-index() -> int {
+        if root.ram-gb <= 3 && root.render-distance <= 10 { return 0; }
+        if root.ram-gb >= 8 || root.render-distance >= 18 { return 2; }
+        return 1;
+    }
+
+    function apply-dark-mode(next: bool) {
+        root.dark-mode = next;
+        Theme.dark = next;
+        root.save-settings();
+    }
+
+    function commit-nickname() {
+        if root.edit-nickname != "" {
+            root.nickname = root.edit-nickname;
+            root.set-nickname(root.edit-nickname);
+            root.show-account-dialog = false;
+            if root.play-after-nickname {
+                root.play-after-nickname = false;
+                root.play();
+            }
+        }
+    }
+
+    // =====================================================================
+    // Wallpaper + fast tint veil for Dark Mode
+    // =====================================================================
+    Image {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        source: Backdrop.sharp;
+        image-fit: cover;
+    }
+
+    Rectangle {
+        background: Theme.wallpaper-dim;
+        animate background {
+            duration: 240ms;
+            easing: ease-out;
+        }
+    }
+
+    Rectangle {
+        background: @linear-gradient(180deg, #00000010 0%, #00000000 32%, #00000000 68%, #0000002B 100%);
+    }
+
+    // =====================================================================
+    // Shell
+    // =====================================================================
+    VerticalLayout {
+        padding: 20px;
+        spacing: 16px;
+
+        // ---------------- Top bar ----------------
+        HorizontalLayout {
+            height: 54px;
+            spacing: 10px;
+
+            // Clean typographic brand pill
+            Glass {
+                horizontal-stretch: 0;
+                radius: 27px;
+                HorizontalLayout {
+                    padding-left: 20px;
+                    padding-right: 20px;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: "Horizon";
+                            font-size: 15px;
+                            font-weight: 700;
+                            color: Theme.text-primary;
+                            animate color { duration: 200ms; }
+                        }
+                        Text {
+                            text: "Offline · 26.3";
+                            font-size: 11px;
+                            font-weight: 500;
+                            color: Theme.accent-label;
+                            animate color { duration: 200ms; }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            // Interactive spring-draggable iOS 26 Liquid Glass tab bar
+            LiquidTabBar {
+                horizontal-stretch: 0;
+                active-tab <=> root.active-tab;
+                active-mods-count: root.active-mods-count;
+                tab-selected(idx) => {
+                    if idx == 1 {
+                        root.refresh-mods();
+                    }
+                }
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            // Light / Dark theme toggle
+            ThemeToggleButton {
+                horizontal-stretch: 0;
+                dark: Theme.dark;
+                clicked => { root.apply-dark-mode(!root.dark-mode); }
+            }
+
+            // Profile pill
+            Glass {
+                horizontal-stretch: 0;
+                radius: 27px;
+                tint: profile-ta.pressed ? Theme.inner-tile-hover : (profile-ta.has-hover ? Theme.glass-hover : Theme.glass-regular);
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 18px;
+                    padding-top: profile-ta.pressed ? 1.5px : 0px;
+                    spacing: 10px;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 38px;
+                            height: 38px;
+                            border-radius: 19px;
+                            background: @linear-gradient(135deg, #FFB37A 0%, #FF6A1F 100%);
+                            Icon {
+                                text: "\u{e7fd}";
+                                font-size: 22px;
+                                color: #FFFFFF;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: root.nickname == "" ? "Войти" : root.nickname;
+                            font-size: 14px;
+                            font-weight: 700;
+                            color: Theme.text-primary;
+                            overflow: elide;
+                            animate color { duration: 200ms; }
+                        }
+                        Text {
+                            text: "Оффлайн-профиль";
+                            font-size: 11px;
+                            color: Theme.text-muted;
+                            animate color { duration: 200ms; }
+                        }
+                    }
+                }
+
+                profile-ta := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.edit-nickname = root.nickname;
+                        root.play-after-nickname = false;
+                        root.show-account-dialog = true;
+                    }
+                }
+            }
+        }
+
+        // ---------------- Spring 144Hz Page Stage ----------------
+        stage := Rectangle {
+            vertical-stretch: 1;
+            clip: true;
+            background: transparent;
+
+            // -------- PAGE 0: HOME (Zero empty voids!) --------
+            Rectangle {
+                x: 0px;
+                y: root.active-tab == 0 ? 0px : 14px;
+                width: stage.width;
+                height: stage.height;
+                visible: root.active-tab == 0;
+                background: transparent;
+
+                animate y {
+                    duration: 300ms;
+                    easing: spring(0.14);
+                }
+
+                HorizontalLayout {
+                    spacing: 16px;
+
+                    Glass {
+                        horizontal-stretch: 3;
+                        preferred-width: 0px;
+                        radius: 32px;
+                        tint: Theme.glass-hero;
+
+                        VerticalLayout {
+                            padding: 26px;
+                            spacing: 14px;
+
+                            // Status badges
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Chip { text: "Без лицензии"; dot: Theme.green; }
+                                Chip {
+                                    text: root.has-embedded-payload ? "Ассеты встроены" : "Локальные ассеты";
+                                    dot: Theme.accent;
+                                }
+                                Chip {
+                                    text: root.client-ready ? "Клиент готов" : "Клиент не найден";
+                                    dot: root.client-ready ? Theme.blue : Theme.amber;
+                                }
+                            }
+
+                            // Crisp title & subtitle right at the top
+                            VerticalLayout {
+                                spacing: 4px;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    alignment: start;
+                                    Text {
+                                        text: "Horizon";
+                                        font-size: 46px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        animate color { duration: 200ms; }
+                                    }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        padding-top: 12px;
+                                        Text {
+                                            text: "26.3 · оффлайн";
+                                            font-size: 16px;
+                                            font-weight: 600;
+                                            color: Theme.accent-label;
+                                            animate color { duration: 200ms; }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: "Никаких аккаунтов и загрузок — всё уже внутри. Введи ник и играй, даже без интернета.";
+                                    font-size: 13.5px;
+                                    color: Theme.text-secondary;
+                                    wrap: word-wrap;
+                                    animate color { duration: 200ms; }
+                                }
+                            }
+
+                            // Crisp Horizon 26.3 Showcase Window (fills the hero cleanly, highlights glass contrast!)
+                            Rectangle {
+                                vertical-stretch: 1;
+                                preferred-width: 0px;
+                                min-height: 140px;
+                                border-radius: 22px;
+                                clip: true;
+
+                                Image {
+                                    width: 100%;
+                                    height: 100%;
+                                    preferred-width: 0px;
+                                    preferred-height: 0px;
+                                    source: Backdrop.sharp;
+                                    image-fit: cover;
+                                }
+
+                                // Soft bottom gradient for readable caption
+                                Rectangle {
+                                    background: @linear-gradient(180deg, #00000000 35%, #080A12C4 100%);
+                                }
+
+                                HorizontalLayout {
+                                    padding: 16px;
+                                    alignment: stretch;
+
+                                    VerticalLayout {
+                                        alignment: end;
+                                        spacing: 2px;
+                                        Text {
+                                            text: "Minecraft Java Edition · Horizon 26.3";
+                                            font-size: 14px;
+                                            font-weight: 700;
+                                            color: #FFFFFF;
+                                        }
+                                        Text {
+                                            text: root.nickname == ""
+                                                ? "Укажи оффлайн-ник и нажми «Играть»"
+                                                : "Игрок: \{root.nickname} · \{root.ram-gb} ГБ ОЗУ · \{root.render-distance} чанков";
+                                            font-size: 12px;
+                                            color: #FFFFFFCC;
+                                        }
+                                    }
+
+                                    Rectangle { horizontal-stretch: 1; }
+
+                                    VerticalLayout {
+                                        alignment: end;
+                                        Rectangle {
+                                            height: 28px;
+                                            border-radius: 14px;
+                                            background: #FFFFFF28;
+                                            HorizontalLayout {
+                                                padding-left: 12px;
+                                                padding-right: 12px;
+                                                Text {
+                                                    text: root.is-playing ? "● В игре" : "● Готов";
+                                                    font-size: 11.5px;
+                                                    font-weight: 700;
+                                                    color: root.is-playing ? #7CE89B : #FFFFFF;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Field {
+                                icon: "\u{e875}";
+                                text <=> root.server-address;
+                                placeholder: "Адрес сервера (необязательно)";
+                                edited => { root.save-settings(); }
+                            }
+
+                            if root.has-status-message: Rectangle {
+                                border-radius: 14px;
+                                background: root.status-is-error ? #FF3B3022 : #34C75922;
+                                HorizontalLayout {
+                                    padding: 12px;
+                                    spacing: 8px;
+                                    Icon {
+                                        text: root.status-is-error ? "\u{e000}" : "\u{e86c}";
+                                        font-size: 18px;
+                                        color: root.status-is-error ? Theme.red : Theme.green;
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: root.status-text;
+                                        font-size: 13px;
+                                        color: Theme.dark
+                                            ? (root.status-is-error ? #FF8A80 : #7CE89B)
+                                            : (root.status-is-error ? #B0000F : #1E7A34);
+                                        wrap: word-wrap;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 10px;
+
+                                GlassButton {
+                                    horizontal-stretch: 1;
+                                    btn-height: 56px;
+                                    kind: root.is-playing ? "danger" : "primary";
+                                    icon: root.is-playing ? "\u{e047}" : "\u{e037}";
+                                    text: root.is-playing ? "Остановить" : "Играть";
+                                    enabled: root.is-playing || !root.is-unpacking;
+                                    clicked => {
+                                        if root.is-playing {
+                                            root.stop();
+                                        } else {
+                                            root.play();
+                                        }
+                                    }
+                                }
+
+                                GlassButton {
+                                    horizontal-stretch: 0;
+                                    btn-height: 56px;
+                                    icon: "\u{e86f}";
+                                    text: "Логи";
+                                    clicked => { root.active-tab = 3; }
+                                }
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        horizontal-stretch: 2;
+                        preferred-width: 0px;
+                        spacing: 16px;
+
+                        Glass {
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                padding: 20px;
+                                spacing: 10px;
+
+                                HorizontalLayout {
+                                    Text {
+                                        text: "Запуск";
+                                        font-size: 18px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        vertical-alignment: center;
+                                        animate color { duration: 200ms; }
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    GlassButton {
+                                        btn-height: 34px;
+                                        icon: "\u{e3c9}";
+                                        text: "Изменить";
+                                        clicked => { root.active-tab = 2; }
+                                    }
+                                }
+
+                                StatTile { icon: "\u{e322}"; label: "Память"; value: "\{root.ram-gb} ГБ"; }
+                                StatTile {
+                                    icon: "\u{e3f7}";
+                                    icon-color: Theme.blue;
+                                    label: "Прорисовка";
+                                    value: "\{root.render-distance} чанков";
+                                }
+                                StatTile {
+                                    icon: "\u{e30b}";
+                                    icon-color: #BF5AF2;
+                                    label: "Экран";
+                                    value: root.fullscreen ? "Полный экран" : "\{root.window-width} × \{root.window-height}";
+                                }
+                                StatTile {
+                                    icon: "\u{e3ae}";
+                                    icon-color: Theme.green;
+                                    label: "Режим и моды";
+                                    value: root.creative-mode
+                                        ? "Творческий · \{root.active-mods-count} мод."
+                                        : "Обычный · \{root.active-mods-count} мод.";
+                                }
+                            }
+                        }
+
+                        Glass {
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    FolderTile {
+                                        icon: "\u{e87b}";
+                                        title: "Моды";
+                                        subtitle: "\{root.total-mods-count} файлов";
+                                        clicked => { root.open-mods-folder(); }
+                                    }
+                                    FolderTile {
+                                        icon: "\u{e80b}";
+                                        title: "Миры";
+                                        subtitle: "saves";
+                                        icon-bg: @linear-gradient(135deg, #5AC8FA 0%, #0A84FF 100%);
+                                        clicked => { root.open-saves-folder(); }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    FolderTile {
+                                        icon: "\u{e412}";
+                                        title: "Скриншоты";
+                                        subtitle: "screenshots";
+                                        icon-bg: @linear-gradient(135deg, #D58CFF 0%, #AF52DE 100%);
+                                        clicked => { root.open-screenshots-folder(); }
+                                    }
+                                    FolderTile {
+                                        icon: "\u{e2c7}";
+                                        title: "Игра";
+                                        subtitle: "корневая папка";
+                                        icon-bg: @linear-gradient(135deg, #7BE495 0%, #34C759 100%);
+                                        clicked => { root.open-game-folder(); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -------- PAGE 1: MODS (2-Column: Installed Mods | GitHub Mod Catalog) --------
+            Rectangle {
+                x: 0px;
+                y: root.active-tab == 1 ? 0px : 14px;
+                width: stage.width;
+                height: stage.height;
+                visible: root.active-tab == 1;
+                background: transparent;
+
+                animate y {
+                    duration: 300ms;
+                    easing: spring(0.14);
+                }
+
+                HorizontalLayout {
+                    spacing: 16px;
+
+                    // LEFT COLUMN: Downloaded / Installed Mods
+                    Glass {
+                        horizontal-stretch: 11;
+                        preferred-width: 0px;
+                        radius: 32px;
+
+                        VerticalLayout {
+                            padding: 22px;
+                            spacing: 14px;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 2px;
+                                    Text {
+                                        text: "Скачанные моды";
+                                        font-size: 22px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        animate color { duration: 200ms; }
+                                    }
+                                    Text {
+                                        text: "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hmod .jar .zip";
+                                        font-size: 12px;
+                                        color: Theme.text-muted;
+                                        animate color { duration: 200ms; }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    GlassButton {
+                                        btn-height: 38px;
+                                        icon: "\u{e5d5}";
+                                        text: "";
+                                        clicked => { root.refresh-mods(); }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    GlassButton {
+                                        btn-height: 38px;
+                                        icon: "\u{e2c8}";
+                                        text: "Папка";
+                                        clicked => { root.open-mods-folder(); }
+                                    }
+                                }
+                            }
+
+                            if root.mods.length == 0: Rectangle {
+                                vertical-stretch: 1;
+                                border-radius: 22px;
+                                background: Theme.inner-tile-disabled;
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 8px;
+                                    padding: 20px;
+                                    Icon {
+                                        text: "\u{e87b}";
+                                        font-size: 44px;
+                                        color: Theme.text-muted;
+                                    }
+                                    Text {
+                                        text: "Пока пусто";
+                                        font-size: 17px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        horizontal-alignment: center;
+                                    }
+                                    Text {
+                                        text: "Скачай моды из каталога справа или закинь файлы в папку";
+                                        font-size: 12.5px;
+                                        color: Theme.text-muted;
+                                        horizontal-alignment: center;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                            }
+
+                            if root.mods.length > 0: ScrollView {
+                                vertical-stretch: 1;
+
+                                VerticalLayout {
+                                    spacing: 8px;
+                                    padding-right: 6px;
+
+                                    for item in root.mods: Rectangle {
+                                        height: 62px;
+                                        border-radius: 18px;
+                                        background: mod-ta.has-hover
+                                            ? Theme.inner-tile-hover
+                                            : (item.enabled ? Theme.inner-tile : Theme.inner-tile-disabled);
+                                        animate background { duration: 150ms; }
+
+                                        mod-ta := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.toggle-mod(item.file-name); }
+                                        }
+
+                                        HorizontalLayout {
+                                            padding-left: 12px;
+                                            padding-right: 12px;
+                                            spacing: 10px;
+
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Rectangle {
+                                                    width: 38px;
+                                                    height: 38px;
+                                                    border-radius: 12px;
+                                                    background: item.enabled
+                                                        ? @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%)
+                                                        : @linear-gradient(135deg, #8E8E93 0%, #636366 100%);
+                                                    Icon {
+                                                        text: "\u{e87b}";
+                                                        font-size: 20px;
+                                                        color: #FFFFFF;
+                                                    }
+                                                }
+                                            }
+
+                                            VerticalLayout {
+                                                horizontal-stretch: 1;
+                                                alignment: center;
+                                                spacing: 2px;
+                                                Text {
+                                                    text: item.name;
+                                                    font-size: 14px;
+                                                    font-weight: 600;
+                                                    color: item.enabled ? Theme.text-primary : Theme.text-muted;
+                                                    overflow: elide;
+                                                    animate color { duration: 160ms; }
+                                                }
+                                                Text {
+                                                    text: item.enabled ? "\{item.size-kb} КБ · включён" : "\{item.size-kb} КБ · выключен";
+                                                    font-size: 11px;
+                                                    color: Theme.text-muted;
+                                                }
+                                            }
+
+                                            // Delete mod button
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Rectangle {
+                                                    width: 32px;
+                                                    height: 32px;
+                                                    border-radius: 16px;
+                                                    background: del-ta.has-hover ? #FF3B3028 : transparent;
+                                                    animate background { duration: 140ms; }
+                                                    Icon {
+                                                        text: "\u{e872}";
+                                                        font-size: 17px;
+                                                        color: del-ta.has-hover ? Theme.red : Theme.text-muted;
+                                                        animate color { duration: 140ms; }
+                                                    }
+                                                    del-ta := TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => { root.delete-mod(item.file-name); }
+                                                    }
+                                                }
+                                            }
+
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Toggle {
+                                                    checked: item.enabled;
+                                                    toggled(_) => { root.toggle-mod(item.file-name); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // RIGHT COLUMN: Online Mod Catalog (GitHub)
+                    Glass {
+                        horizontal-stretch: 10;
+                        preferred-width: 0px;
+                        radius: 32px;
+
+                        VerticalLayout {
+                            padding: 22px;
+                            spacing: 12px;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 2px;
+                                    Text {
+                                        text: "Каталог модов";
+                                        font-size: 22px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        animate color { duration: 200ms; }
+                                    }
+                                    Text {
+                                        text: root.catalog-loading
+                                            ? "Загрузка с GitHub..."
+                                            : "Доступно \{root.catalog-mods.length} · GitHub";
+                                        font-size: 12px;
+                                        color: Theme.text-muted;
+                                        animate color { duration: 200ms; }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    GlassButton {
+                                        btn-height: 38px;
+                                        icon: "\u{e5d5}";
+                                        text: "Обновить";
+                                        enabled: !root.catalog-loading;
+                                        clicked => { root.refresh-catalog(); }
+                                    }
+                                }
+                            }
+
+                            Field {
+                                icon: "\u{e8b6}";
+                                text <=> root.catalog-search;
+                                placeholder: "Поиск модов...";
+                                edited => { root.search-catalog(root.catalog-search); }
+                            }
+
+                            if root.catalog-error != "": Rectangle {
+                                border-radius: 16px;
+                                background: #FF3B301E;
+                                HorizontalLayout {
+                                    padding: 12px;
+                                    spacing: 8px;
+                                    Icon {
+                                        text: "\u{e000}";
+                                        font-size: 18px;
+                                        color: Theme.red;
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: root.catalog-error;
+                                        font-size: 12px;
+                                        color: Theme.dark ? #FF8A80 : #B0000F;
+                                        wrap: word-wrap;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            if !root.catalog-loading && root.catalog-mods.length == 0: Rectangle {
+                                vertical-stretch: 1;
+                                border-radius: 22px;
+                                background: Theme.inner-tile-disabled;
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 10px;
+                                    padding: 20px;
+
+                                    Icon {
+                                        text: "\u{e2c0}";
+                                        font-size: 40px;
+                                        color: Theme.text-muted;
+                                    }
+                                    Text {
+                                        text: root.catalog-search != "" ? "Ничего не найдено" : "Каталог пока пуст";
+                                        font-size: 16px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        horizontal-alignment: center;
+                                    }
+                                    Text {
+                                        text: root.catalog-search != ""
+                                            ? "Попробуй другой запрос"
+                                            : "Укажи ссылку на свой GitHub-репозиторий в Настройках или нажми «Обновить»";
+                                        font-size: 12px;
+                                        color: Theme.text-muted;
+                                        horizontal-alignment: center;
+                                        wrap: word-wrap;
+                                    }
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        spacing: 8px;
+                                        GlassButton {
+                                            btn-height: 36px;
+                                            icon: "\u{e8b8}";
+                                            text: "Настроить URL";
+                                            clicked => { root.active-tab = 2; }
+                                        }
+                                        GlassButton {
+                                            btn-height: 36px;
+                                            kind: "primary";
+                                            icon: "\u{e5d5}";
+                                            text: "Повторить";
+                                            clicked => { root.refresh-catalog(); }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if root.catalog-mods.length > 0: ScrollView {
+                                vertical-stretch: 1;
+
+                                VerticalLayout {
+                                    spacing: 10px;
+                                    padding-right: 6px;
+
+                                    for cmod in root.catalog-mods: Rectangle {
+                                        min-height: 82px;
+                                        border-radius: 20px;
+                                        background: Theme.inner-tile;
+                                        animate background { duration: 150ms; }
+
+                                        HorizontalLayout {
+                                            padding: 12px;
+                                            spacing: 12px;
+
+                                            // Mod Square Icon
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Rectangle {
+                                                    width: 52px;
+                                                    height: 52px;
+                                                    border-radius: 14px;
+                                                    background: Theme.badge-pill-bg;
+                                                    clip: true;
+
+                                                    if cmod.has-icon: Image {
+                                                        width: 100%;
+                                                        height: 100%;
+                                                        source: cmod.icon;
+                                                        image-fit: cover;
+                                                    }
+
+                                                    if !cmod.has-icon: Icon {
+                                                        text: "\u{e87b}";
+                                                        font-size: 26px;
+                                                        color: Theme.accent;
+                                                    }
+                                                }
+                                            }
+
+                                            // Name + Description
+                                            VerticalLayout {
+                                                horizontal-stretch: 1;
+                                                alignment: center;
+                                                spacing: 3px;
+
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    alignment: start;
+                                                    Text {
+                                                        text: cmod.name;
+                                                        font-size: 14px;
+                                                        font-weight: 700;
+                                                        color: Theme.text-primary;
+                                                        overflow: elide;
+                                                        animate color { duration: 160ms; }
+                                                    }
+                                                    if cmod.version != "": Text {
+                                                        text: "v\{cmod.version}";
+                                                        font-size: 11px;
+                                                        font-weight: 600;
+                                                        color: Theme.accent-label;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: cmod.description != "" ? cmod.description : cmod.file-name;
+                                                    font-size: 11.5px;
+                                                    color: Theme.text-secondary;
+                                                    wrap: word-wrap;
+                                                    animate color { duration: 160ms; }
+                                                }
+
+                                                if cmod.size-kb > 0: Text {
+                                                    text: "\{cmod.size-kb} КБ";
+                                                    font-size: 10.5px;
+                                                    color: Theme.text-muted;
+                                                }
+                                            }
+
+                                            // Download / Installed Action
+                                            VerticalLayout {
+                                                alignment: center;
+                                                GlassButton {
+                                                    btn-height: 36px;
+                                                    kind: cmod.installed ? "secondary" : "primary";
+                                                    icon: cmod.installed ? "\u{e86c}" : (cmod.downloading ? "\u{e86a}" : "\u{e2c4}");
+                                                    text: cmod.installed ? "Скачан" : (cmod.downloading ? "..." : "Скачать");
+                                                    enabled: !cmod.installed && !cmod.downloading;
+                                                    clicked => { root.download-mod(cmod.id); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -------- PAGE 2: SETTINGS (Zero empty voids — presets & launch flags!) --------
+            Rectangle {
+                x: 0px;
+                y: root.active-tab == 2 ? 0px : 14px;
+                width: stage.width;
+                height: stage.height;
+                visible: root.active-tab == 2;
+                background: transparent;
+
+                animate y {
+                    duration: 300ms;
+                    easing: spring(0.14);
+                }
+
+                VerticalLayout {
+                    spacing: 16px;
+
+                    HorizontalLayout {
+                        vertical-stretch: 1;
+                        spacing: 16px;
+
+                        Glass {
+                            horizontal-stretch: 1;
+                            radius: 30px;
+                            VerticalLayout {
+                                padding: 22px;
+                                spacing: 14px;
+
+                                Text {
+                                    text: "Производительность";
+                                    font-size: 20px;
+                                    font-weight: 700;
+                                    color: Theme.text-primary;
+                                    animate color { duration: 200ms; }
+                                }
+
+                                // Quick performance presets
+                                VerticalLayout {
+                                    vertical-stretch: 0;
+                                    spacing: 8px;
+                                    Text {
+                                        text: "Быстрый профиль";
+                                        font-size: 12.5px;
+                                        font-weight: 600;
+                                        color: Theme.text-secondary;
+                                    }
+                                    LiquidSegmented3 {
+                                        stretch: true;
+                                        label0: "Эконом";
+                                        label1: "Баланс";
+                                        label2: "Ультра";
+                                        selected: root.perf-preset-index();
+                                        changed(idx) => {
+                                            if idx == 0 { root.ram-gb = 2; root.render-distance = 8; }
+                                            if idx == 1 { root.ram-gb = 4; root.render-distance = 12; }
+                                            if idx == 2 { root.ram-gb = 8; root.render-distance = 20; }
+                                            root.save-settings();
+                                        }
+                                    }
+                                }
+
+                                Slider {
+                                    icon: "\u{e322}";
+                                    title: "Оперативная память";
+                                    value-text: "\{root.ram-gb} ГБ";
+                                    value <=> root.ram-gb;
+                                    min-val: 2;
+                                    max-val: 16;
+                                    step: 1;
+                                    changed(_) => { root.save-settings(); }
+                                }
+
+                                Slider {
+                                    icon: "\u{e3f7}";
+                                    title: "Дальность прорисовки";
+                                    value-text: "\{root.render-distance} чанков";
+                                    value <=> root.render-distance;
+                                    min-val: 4;
+                                    max-val: 32;
+                                    step: 2;
+                                    changed(_) => { root.save-settings(); }
+                                }
+
+                                SettingRow {
+                                    icon: "\u{e3a8}";
+                                    title: "Тёмная тема";
+                                    subtitle: "Дымчатое стекло для вечерней игры";
+                                    checked: root.dark-mode;
+                                    toggled(v) => { root.apply-dark-mode(v); }
+                                }
+                            }
+                        }
+
+                        Glass {
+                            horizontal-stretch: 1;
+                            radius: 30px;
+                            VerticalLayout {
+                                padding: 22px;
+                                spacing: 14px;
+
+                                Text {
+                                    text: "Экран и игра";
+                                    font-size: 20px;
+                                    font-weight: 700;
+                                    color: Theme.text-primary;
+                                    animate color { duration: 200ms; }
+                                }
+
+                                VerticalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: "Разрешение окна (\{root.window-width} × \{root.window-height})";
+                                        font-size: 12.5px;
+                                        font-weight: 600;
+                                        color: Theme.text-secondary;
+                                        animate color { duration: 200ms; }
+                                    }
+
+                                    LiquidSegmented4 {
+                                        label0: "720p";
+                                        label1: "900p";
+                                        label2: "1080p";
+                                        label3: "1440p";
+                                        selected: root.resolution-index();
+                                        changed(idx) => {
+                                            if idx == 0 { root.window-width = 1280; root.window-height = 720; }
+                                            if idx == 1 { root.window-width = 1600; root.window-height = 900; }
+                                            if idx == 2 { root.window-width = 1920; root.window-height = 1080; }
+                                            if idx == 3 { root.window-width = 2560; root.window-height = 1440; }
+                                            root.save-settings();
+                                        }
+                                    }
+                                }
+
+                                SettingRow {
+                                    icon: "\u{e5d0}";
+                                    title: "Полный экран";
+                                    subtitle: "Запуск сразу на весь монитор";
+                                    checked <=> root.fullscreen;
+                                    toggled(_) => { root.save-settings(); }
+                                }
+
+                                SettingRow {
+                                    icon: "\u{e3ae}";
+                                    title: "Творческий режим";
+                                    subtitle: "Передаёт флаг --creative при старте";
+                                    checked <=> root.creative-mode;
+                                    toggled(_) => { root.save-settings(); }
+                                }
+
+                                // Live launch command preview (fills space with useful info!)
+                                Rectangle {
+                                    vertical-stretch: 1;
+                                    min-height: 62px;
+                                    border-radius: 18px;
+                                    background: Theme.inner-tile;
+                                    VerticalLayout {
+                                        padding: 13px;
+                                        alignment: center;
+                                        spacing: 4px;
+                                        Text {
+                                            text: "Аргументы запуска клиента";
+                                            font-size: 11.5px;
+                                            font-weight: 600;
+                                            color: Theme.text-muted;
+                                        }
+                                        Text {
+                                            text: "--name \{root.nickname == "" ? "<ник>" : root.nickname} --render-distance \{root.render-distance} "
+                                                + (root.fullscreen ? "--fullscreen" : "--width \{root.window-width} --height \{root.window-height}")
+                                                + (root.creative-mode ? " --creative" : "");
+                                            font-family: "Consolas";
+                                            font-size: 11.5px;
+                                            color: Theme.text-secondary;
+                                            wrap: word-wrap;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Compact full-width Client Files & GitHub Mods Repo card
+                    Glass {
+                        vertical-stretch: 0;
+                        radius: 28px;
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 12px;
+
+                            HorizontalLayout {
+                                spacing: 10px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 2px;
+                                    Text {
+                                        text: "Файлы клиента и каталог модов (GitHub)";
+                                        font-size: 16px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        animate color { duration: 200ms; }
+                                    }
+                                    Text {
+                                        text: root.mods-dir-path;
+                                        font-size: 11px;
+                                        color: Theme.text-muted;
+                                        overflow: elide;
+                                        animate color { duration: 200ms; }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    Chip {
+                                        text: root.has-embedded-payload ? "Ассеты вшиты в .exe" : "Без встроенного архива";
+                                        dot: root.has-embedded-payload ? Theme.green : Theme.amber;
+                                    }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Field {
+                                    horizontal-stretch: 1;
+                                    icon: "\u{e80b}";
+                                    text <=> root.mods-repo-url;
+                                    placeholder: "https://github.com/твой-ник/horizon-mods";
+                                    accepted => {
+                                        root.save-settings();
+                                        root.refresh-catalog();
+                                    }
+                                    edited => { root.save-settings(); }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    GlassButton {
+                                        btn-height: 46px;
+                                        kind: "primary";
+                                        icon: "\u{e5d5}";
+                                        text: "Загрузить";
+                                        clicked => {
+                                            root.save-settings();
+                                            root.refresh-catalog();
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 10px;
+
+                                GlassButton {
+                                    horizontal-stretch: 1;
+                                    btn-height: 40px;
+                                    icon: "\u{e2c8}";
+                                    text: "Папка игры";
+                                    clicked => { root.open-game-folder(); }
+                                }
+                                GlassButton {
+                                    horizontal-stretch: 1;
+                                    btn-height: 40px;
+                                    icon: "\u{e87b}";
+                                    text: "Моды";
+                                    clicked => { root.open-mods-folder(); }
+                                }
+                                GlassButton {
+                                    horizontal-stretch: 1;
+                                    btn-height: 40px;
+                                    icon: "\u{e80b}";
+                                    text: "Миры";
+                                    clicked => { root.open-saves-folder(); }
+                                }
+                                GlassButton {
+                                    horizontal-stretch: 1;
+                                    btn-height: 40px;
+                                    kind: root.has-embedded-payload ? "primary" : "secondary";
+                                    icon: "\u{e869}";
+                                    text: "Восстановить клиент";
+                                    enabled: root.has-embedded-payload && !root.is-playing && !root.is-unpacking;
+                                    clicked => { root.repair-client(); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -------- PAGE 3: CONSOLE --------
+            Rectangle {
+                x: 0px;
+                y: root.active-tab == 3 ? 0px : 14px;
+                width: stage.width;
+                height: stage.height;
+                visible: root.active-tab == 3;
+                background: transparent;
+
+                animate y {
+                    duration: 300ms;
+                    easing: spring(0.14);
+                }
+
+                Glass {
+                    width: 100%;
+                    height: 100%;
+                    radius: 32px;
+
+                    VerticalLayout {
+                        padding: 22px;
+                        spacing: 14px;
+
+                        HorizontalLayout {
+                            spacing: 10px;
+
+                            VerticalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "Консоль";
+                                    font-size: 26px;
+                                    font-weight: 700;
+                                    color: Theme.text-primary;
+                                    animate color { duration: 200ms; }
+                                }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; }
+
+                            VerticalLayout {
+                                alignment: center;
+                                LiquidSegmented3 {
+                                    label0: "Все";
+                                    label1: "Предупреждения";
+                                    label2: "Ошибки";
+                                    selected <=> root.log-filter;
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                GlassButton {
+                                    icon: "\u{e872}";
+                                    text: "Очистить";
+                                    clicked => { root.clear-log(); }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            vertical-stretch: 1;
+                            border-radius: 22px;
+                            background: Theme.console-bg;
+                            clip: true;
+                            animate background { duration: 200ms; }
+
+                            if root.log-lines.length == 0: VerticalLayout {
+                                alignment: center;
+                                spacing: 6px;
+                                Icon {
+                                    text: "\u{e86f}";
+                                    font-size: 40px;
+                                    color: Theme.text-muted;
+                                }
+                                Text {
+                                    text: "Здесь появятся логи игры после запуска";
+                                    font-size: 13.5px;
+                                    color: Theme.text-muted;
+                                    horizontal-alignment: center;
+                                }
+                            }
+
+                            if root.log-lines.length > 0: ScrollView {
+                                VerticalLayout {
+                                    padding: 16px;
+                                    alignment: start;
+
+                                    for entry in root.log-lines: VerticalLayout {
+                                        if entry.level >= root.log-filter: VerticalLayout {
+                                            padding-bottom: 3px;
+                                            Text {
+                                                text: entry.text;
+                                                font-family: "Consolas";
+                                                font-size: 12.5px;
+                                                color: Theme.dark
+                                                    ? (entry.level == 2 ? #FF7A73 : (entry.level == 1 ? #FFD166 : #E6EAF2))
+                                                    : entry.color;
+                                                wrap: word-wrap;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =====================================================================
+    // Smooth Spring Account Sheet
+    // =====================================================================
+    account-overlay := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: root.show-account-dialog ? Theme.overlay-scrim-on : Theme.overlay-scrim-off;
+        visible: root.show-account-dialog || account-card.y < root.height - 2px;
+
+        animate background {
+            duration: 220ms;
+            easing: ease-out;
+        }
+
+        TouchArea {
+            enabled: root.show-account-dialog;
+            clicked => {
+                root.show-account-dialog = false;
+                root.play-after-nickname = false;
+            }
+        }
+
+        account-card := Glass {
+            width: 460px;
+            height: root.recent-nicknames.length > 0 ? 392px : 320px;
+            x: (parent.width - self.width) / 2;
+            y: root.show-account-dialog ? (parent.height - self.height) / 2 : parent.height + 24px;
+            radius: 34px;
+            tint: Theme.glass-thick;
+
+            animate y {
+                duration: 340ms;
+                easing: spring(0.14);
+            }
+
+            TouchArea { }
+
+            VerticalLayout {
+                padding: 28px;
+                spacing: 16px;
+
+                HorizontalLayout {
+                    spacing: 14px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 52px;
+                            height: 52px;
+                            border-radius: 26px;
+                            background: @linear-gradient(135deg, #FFB37A 0%, #FF6A1F 100%);
+                            Icon {
+                                text: "\u{e7fd}";
+                                font-size: 28px;
+                                color: #FFFFFF;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: "Оффлайн-профиль";
+                            font-size: 22px;
+                            font-weight: 700;
+                            color: Theme.text-primary;
+                        }
+                        Text {
+                            text: "Любой ник, лицензия не нужна";
+                            font-size: 13px;
+                            color: Theme.text-muted;
+                        }
+                    }
+                }
+
+                Field {
+                    icon: "\u{e7fd}";
+                    text <=> root.edit-nickname;
+                    placeholder: "Никнейм, например Steve";
+                    accepted => { root.commit-nickname(); }
+                }
+
+                if root.recent-nicknames.length > 0: VerticalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: "Недавние";
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: Theme.text-muted;
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        for nick in root.recent-nicknames: Rectangle {
+                            height: 34px;
+                            border-radius: 17px;
+                            background: root.edit-nickname == nick
+                                ? Theme.droplet-bg
+                                : (nick-ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile);
+                            border-width: root.edit-nickname == nick ? 1.5px : 0px;
+                            border-color: Theme.accent;
+                            animate background { duration: 150ms; }
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                padding-right: 14px;
+                                Text {
+                                    text: nick;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: Theme.text-primary;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            nick-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.edit-nickname = nick; }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { vertical-stretch: 1; }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    GlassButton {
+                        horizontal-stretch: 1;
+                        btn-height: 50px;
+                        text: "Отмена";
+                        clicked => {
+                            root.show-account-dialog = false;
+                            root.play-after-nickname = false;
+                        }
+                    }
+                    GlassButton {
+                        horizontal-stretch: 1;
+                        btn-height: 50px;
+                        kind: "primary";
+                        text: root.play-after-nickname ? "Играть" : "Сохранить";
+                        enabled: root.edit-nickname != "";
+                        clicked => { root.commit-nickname(); }
+                    }
+                }
+            }
+        }
+    }
+
+    // =====================================================================
+    // Smooth Spring First-run Unpacking Sheet
+    // =====================================================================
+    unpack-overlay := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: root.is-unpacking ? Theme.overlay-scrim-on : Theme.overlay-scrim-off;
+        visible: root.is-unpacking || unpack-card.y < root.height - 2px;
+
+        animate background {
+            duration: 220ms;
+            easing: ease-out;
+        }
+
+        TouchArea { enabled: root.is-unpacking; }
+
+        unpack-card := Glass {
+            width: 500px;
+            height: root.unpack-has-error ? 310px : 230px;
+            x: (parent.width - self.width) / 2;
+            y: root.is-unpacking ? (parent.height - self.height) / 2 : parent.height + 24px;
+            radius: 34px;
+            tint: Theme.glass-thick;
+
+            animate y {
+                duration: 340ms;
+                easing: spring(0.14);
+            }
+
+            VerticalLayout {
+                padding: 30px;
+                spacing: 18px;
+                alignment: center;
+
+                VerticalLayout {
+                    spacing: 4px;
+                    Text {
+                        text: "Готовим Horizon 26.3";
+                        font-size: 21px;
+                        font-weight: 700;
+                        color: Theme.text-primary;
+                    }
+                    Text {
+                        text: "Первый запуск — распаковываем встроенные ассеты";
+                        font-size: 12.5px;
+                        color: Theme.text-muted;
+                    }
+                }
+
+                Rectangle {
+                    height: 10px;
+                    border-radius: 5px;
+                    background: Theme.fill-strong;
+                    clip: true;
+                    Rectangle {
+                        x: 0px;
+                        width: parent.width * Math.clamp(root.unpack-progress, 0.0, 1.0);
+                        border-radius: 5px;
+                        background: @linear-gradient(90deg, #FFA45C 0%, #FF6A1F 100%);
+                        animate width { duration: 140ms; easing: ease-out; }
+                    }
+                }
+
+                HorizontalLayout {
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.unpack-status;
+                        font-size: 13px;
+                        color: Theme.text-secondary;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: root.unpack-time-left != "" ? "\{root.unpack-percent-text} · \{root.unpack-time-left}" : root.unpack-percent-text;
+                        font-size: 13px;
+                        font-weight: 700;
+                        color: Theme.accent-label;
+                    }
+                }
+
+                if root.unpack-has-error: VerticalLayout {
+                    spacing: 12px;
+                    Text {
+                        text: root.unpack-error-text;
+                        font-size: 12.5px;
+                        color: Theme.red;
+                        wrap: word-wrap;
+                    }
+                    GlassButton {
+                        btn-height: 46px;
+                        kind: "primary";
+                        icon: "\u{e5d5}";
+                        text: "Повторить";
+                        clicked => { root.retry-unpack(); }
+                    }
+                }
+            }
+        }
+    }
+}
