@@ -49,14 +49,14 @@ export component Glass inherits Rectangle {
 }
 
 // ---------------------------------------------------------------------------
-// Clean high-FPS capsule button (no bright border glare)
+// Clean high-FPS capsule button
 // ---------------------------------------------------------------------------
 export component GlassButton inherits Rectangle {
     in property <string> text;
     in property <string> icon: "";
     in property <string> kind: "secondary"; // "primary" | "danger" | "secondary"
     in property <bool> enabled: true;
-    in property <length> btn-height: 44px;
+    in property <length> btn-height: 40px;
     callback clicked;
 
     height: btn-height;
@@ -73,21 +73,21 @@ export component GlassButton inherits Rectangle {
 
     HorizontalLayout {
         alignment: center;
-        spacing: (root.icon != "" && root.text != "") ? 8px : 0px;
-        padding-left: root.text == "" ? 0px : (root.btn-height > 50px ? 26px : 16px);
-        padding-right: root.text == "" ? 0px : (root.btn-height > 50px ? 26px : 16px);
+        spacing: (root.icon != "" && root.text != "") ? 7px : 0px;
+        padding-left: root.text == "" ? 0px : (root.btn-height >= 48px ? 22px : 15px);
+        padding-right: root.text == "" ? 0px : (root.btn-height >= 48px ? 22px : 15px);
         padding-top: ta.pressed ? 1.5px : 0px;
 
         if root.icon != "": Icon {
             text: root.icon;
-            font-size: root.btn-height > 50px ? 22px : 18px;
+            font-size: root.btn-height >= 48px ? 21px : 17px;
             color: root.kind == "secondary" ? Theme.text-primary : Theme.text-on-accent;
             animate color { duration: 150ms; }
         }
 
         if root.text != "": Text {
             text: root.text;
-            font-size: root.btn-height > 50px ? 16.5px : 13.5px;
+            font-size: root.btn-height >= 48px ? 15.5px : 13px;
             font-weight: root.kind == "secondary" ? 600 : 700;
             color: root.kind == "secondary" ? Theme.text-primary : Theme.text-on-accent;
             vertical-alignment: center;
@@ -109,18 +109,18 @@ export component ThemeToggleButton inherits Glass {
     in property <bool> dark: false;
     callback clicked;
 
-    width: 54px;
-    height: 54px;
-    radius: 27px;
+    width: 46px;
+    height: 46px;
+    radius: 23px;
     tint: ta.pressed ? Theme.inner-tile-hover : (ta.has-hover ? Theme.glass-hover : Theme.glass-regular);
 
     Icon {
         x: 0px;
-        y: root.dark ? -54px : (ta.pressed ? 1.5px : 0px);
+        y: root.dark ? -46px : (ta.pressed ? 1.5px : 0px);
         width: parent.width;
         height: parent.height;
         text: "\u{e3a8}";
-        font-size: 21px;
+        font-size: 19px;
         color: Theme.text-primary;
         animate y {
             duration: 340ms;
@@ -130,11 +130,11 @@ export component ThemeToggleButton inherits Glass {
 
     Icon {
         x: 0px;
-        y: root.dark ? (ta.pressed ? 1.5px : 0px) : 54px;
+        y: root.dark ? (ta.pressed ? 1.5px : 0px) : 46px;
         width: parent.width;
         height: parent.height;
         text: "\u{e430}";
-        font-size: 21px;
+        font-size: 19px;
         color: #FFB84D;
         animate y {
             duration: 340ms;
@@ -149,9 +149,7 @@ export component ThemeToggleButton inherits Glass {
 }
 
 // ---------------------------------------------------------------------------
-// iOS 26 Interactive Draggable Liquid Glass Tab Bar
-// Uses velocity-preserving spring physics (Slint 1.18 native spring curve!)
-// so dragging feels fluid like liquid mercury and snaps smoothly on release.
+// iOS 26 Interactive Draggable Liquid Glass Tab Bar (Compact 46px height)
 // ---------------------------------------------------------------------------
 export component LiquidTabBar inherits Glass {
     in-out property <int> active-tab: 0;
@@ -190,15 +188,14 @@ export component LiquidTabBar inherits Glass {
         ? Math.clamp(root.drag-pointer-x - root.droplet-w / 2, t0.x, root.max-droplet-x)
         : root.tab-x(root.active-tab);
 
-    height: 54px;
-    radius: 27px;
+    height: 46px;
+    radius: 23px;
 
-    // Velocity-preserving spring droplet (follows pointer fluidly, snaps with iOS bounce)
     Rectangle {
         x: root.droplet-x;
-        y: root.dragging ? 5.5px : 7px;
+        y: root.dragging ? 4px : 5px;
         width: root.droplet-w;
-        height: root.dragging ? 43px : 40px;
+        height: root.dragging ? 38px : 36px;
         border-radius: self.height / 2;
         background: root.dragging ? Theme.droplet-drag-bg : Theme.droplet-bg;
 
@@ -218,31 +215,31 @@ export component LiquidTabBar inherits Glass {
     }
 
     HorizontalLayout {
-        padding: 7px;
+        padding: 5px;
         spacing: 2px;
 
         // Tab 0: Home
         t0 := Rectangle {
-            height: 40px;
-            border-radius: 20px;
+            height: 36px;
+            border-radius: 18px;
             background: !root.dragging && root.active-tab != 0 && root.hover-tab == 0 ? Theme.droplet-hover : transparent;
             animate background { duration: 120ms; }
 
             HorizontalLayout {
                 alignment: center;
                 spacing: 6px;
-                padding-left: 15px;
-                padding-right: 17px;
+                padding-left: 14px;
+                padding-right: 16px;
 
                 Icon {
                     text: "\u{e88a}";
-                    font-size: 18px;
+                    font-size: 17px;
                     color: root.visual-tab == 0 ? Theme.accent : (root.hover-tab == 0 ? Theme.text-primary : Theme.text-secondary);
                     animate color { duration: 140ms; }
                 }
                 Text {
                     text: "Главная";
-                    font-size: 13.5px;
+                    font-size: 13px;
                     font-weight: 600;
                     color: root.visual-tab == 0 ? Theme.text-primary : (root.hover-tab == 0 ? Theme.text-primary : Theme.text-secondary);
                     vertical-alignment: center;
@@ -253,26 +250,26 @@ export component LiquidTabBar inherits Glass {
 
         // Tab 1: Mods
         t1 := Rectangle {
-            height: 40px;
-            border-radius: 20px;
+            height: 36px;
+            border-radius: 18px;
             background: !root.dragging && root.active-tab != 1 && root.hover-tab == 1 ? Theme.droplet-hover : transparent;
             animate background { duration: 120ms; }
 
             HorizontalLayout {
                 alignment: center;
                 spacing: 6px;
-                padding-left: 15px;
-                padding-right: 17px;
+                padding-left: 14px;
+                padding-right: 16px;
 
                 Icon {
                     text: "\u{e87b}";
-                    font-size: 18px;
+                    font-size: 17px;
                     color: root.visual-tab == 1 ? Theme.accent : (root.hover-tab == 1 ? Theme.text-primary : Theme.text-secondary);
                     animate color { duration: 140ms; }
                 }
                 Text {
                     text: "Моды";
-                    font-size: 13.5px;
+                    font-size: 13px;
                     font-weight: 600;
                     color: root.visual-tab == 1 ? Theme.text-primary : (root.hover-tab == 1 ? Theme.text-primary : Theme.text-secondary);
                     vertical-alignment: center;
@@ -281,16 +278,16 @@ export component LiquidTabBar inherits Glass {
                 if root.active-mods-count > 0: VerticalLayout {
                     alignment: center;
                     Rectangle {
-                        height: 18px;
-                        min-width: 18px;
-                        border-radius: 9px;
+                        height: 17px;
+                        min-width: 17px;
+                        border-radius: 8.5px;
                         background: Theme.accent;
                         HorizontalLayout {
                             padding-left: 5px;
                             padding-right: 5px;
                             Text {
                                 text: "\{root.active-mods-count}";
-                                font-size: 10.5px;
+                                font-size: 10px;
                                 font-weight: 700;
                                 color: #FFFFFF;
                                 vertical-alignment: center;
@@ -304,26 +301,26 @@ export component LiquidTabBar inherits Glass {
 
         // Tab 2: Settings
         t2 := Rectangle {
-            height: 40px;
-            border-radius: 20px;
+            height: 36px;
+            border-radius: 18px;
             background: !root.dragging && root.active-tab != 2 && root.hover-tab == 2 ? Theme.droplet-hover : transparent;
             animate background { duration: 120ms; }
 
             HorizontalLayout {
                 alignment: center;
                 spacing: 6px;
-                padding-left: 15px;
-                padding-right: 17px;
+                padding-left: 14px;
+                padding-right: 16px;
 
                 Icon {
                     text: "\u{e8b8}";
-                    font-size: 18px;
+                    font-size: 17px;
                     color: root.visual-tab == 2 ? Theme.accent : (root.hover-tab == 2 ? Theme.text-primary : Theme.text-secondary);
                     animate color { duration: 140ms; }
                 }
                 Text {
                     text: "Настройки";
-                    font-size: 13.5px;
+                    font-size: 13px;
                     font-weight: 600;
                     color: root.visual-tab == 2 ? Theme.text-primary : (root.hover-tab == 2 ? Theme.text-primary : Theme.text-secondary);
                     vertical-alignment: center;
@@ -334,26 +331,26 @@ export component LiquidTabBar inherits Glass {
 
         // Tab 3: Console
         t3 := Rectangle {
-            height: 40px;
-            border-radius: 20px;
+            height: 36px;
+            border-radius: 18px;
             background: !root.dragging && root.active-tab != 3 && root.hover-tab == 3 ? Theme.droplet-hover : transparent;
             animate background { duration: 120ms; }
 
             HorizontalLayout {
                 alignment: center;
                 spacing: 6px;
-                padding-left: 15px;
-                padding-right: 17px;
+                padding-left: 14px;
+                padding-right: 16px;
 
                 Icon {
                     text: "\u{e86f}";
-                    font-size: 18px;
+                    font-size: 17px;
                     color: root.visual-tab == 3 ? Theme.accent : (root.hover-tab == 3 ? Theme.text-primary : Theme.text-secondary);
                     animate color { duration: 140ms; }
                 }
                 Text {
                     text: "Консоль";
-                    font-size: 13.5px;
+                    font-size: 13px;
                     font-weight: 600;
                     color: root.visual-tab == 3 ? Theme.text-primary : (root.hover-tab == 3 ? Theme.text-primary : Theme.text-secondary);
                     vertical-alignment: center;
@@ -363,7 +360,6 @@ export component LiquidTabBar inherits Glass {
         }
     }
 
-    // Unified touch area for click + continuous iOS press-and-drag scrubbing
     bar-ta := TouchArea {
         mouse-cursor: root.dragging ? grabbing : pointer;
         pointer-event(event) => {
@@ -429,16 +425,16 @@ export component LiquidSegmented4 inherits Rectangle {
         ? Math.clamp(root.drag-pointer-x - root.cur-w / 2, s0.x, root.max-x)
         : root.seg-x(root.selected);
 
-    height: 44px;
-    border-radius: 22px;
+    height: 38px;
+    border-radius: 19px;
     background: Theme.fill;
     animate background { duration: 200ms; }
 
     Rectangle {
         x: root.droplet-x;
-        y: root.dragging ? 3px : 4px;
+        y: root.dragging ? 2px : 3px;
         width: root.cur-w;
-        height: root.dragging ? 38px : 36px;
+        height: root.dragging ? 34px : 32px;
         border-radius: self.height / 2;
         background: root.dragging ? Theme.droplet-drag-bg : Theme.droplet-bg;
 
@@ -455,15 +451,15 @@ export component LiquidSegmented4 inherits Rectangle {
     }
 
     HorizontalLayout {
-        padding: 4px;
+        padding: 3px;
         spacing: 2px;
 
         s0 := Rectangle {
             horizontal-stretch: 1;
-            height: 36px;
+            height: 32px;
             Text {
                 text: root.label0;
-                font-size: 13px;
+                font-size: 12.5px;
                 font-weight: 600;
                 color: root.visual-idx == 0 ? Theme.text-primary : Theme.text-secondary;
                 horizontal-alignment: center;
@@ -473,10 +469,10 @@ export component LiquidSegmented4 inherits Rectangle {
         }
         s1 := Rectangle {
             horizontal-stretch: 1;
-            height: 36px;
+            height: 32px;
             Text {
                 text: root.label1;
-                font-size: 13px;
+                font-size: 12.5px;
                 font-weight: 600;
                 color: root.visual-idx == 1 ? Theme.text-primary : Theme.text-secondary;
                 horizontal-alignment: center;
@@ -486,10 +482,10 @@ export component LiquidSegmented4 inherits Rectangle {
         }
         s2 := Rectangle {
             horizontal-stretch: 1;
-            height: 36px;
+            height: 32px;
             Text {
                 text: root.label2;
-                font-size: 13px;
+                font-size: 12.5px;
                 font-weight: 600;
                 color: root.visual-idx == 2 ? Theme.text-primary : Theme.text-secondary;
                 horizontal-alignment: center;
@@ -499,10 +495,10 @@ export component LiquidSegmented4 inherits Rectangle {
         }
         s3 := Rectangle {
             horizontal-stretch: 1;
-            height: 36px;
+            height: 32px;
             Text {
                 text: root.label3;
-                font-size: 13px;
+                font-size: 12.5px;
                 font-weight: 600;
                 color: root.visual-idx == 3 ? Theme.text-primary : Theme.text-secondary;
                 horizontal-alignment: center;
@@ -688,8 +684,8 @@ export component LiquidSegmented3 inherits Rectangle {
         ? Math.clamp(root.drag-pointer-x - root.cur-w / 2, f0.x, root.max-x)
         : root.seg-x(root.selected);
 
-    height: 42px;
-    border-radius: 21px;
+    height: 38px;
+    border-radius: 19px;
     background: Theme.fill;
     animate background { duration: 200ms; }
 
@@ -697,7 +693,7 @@ export component LiquidSegmented3 inherits Rectangle {
         x: root.droplet-x;
         y: root.dragging ? 2px : 3px;
         width: root.cur-w;
-        height: root.dragging ? 38px : 36px;
+        height: root.dragging ? 34px : 32px;
         border-radius: self.height / 2;
         background: root.dragging ? Theme.droplet-drag-bg : Theme.droplet-bg;
 
@@ -719,14 +715,14 @@ export component LiquidSegmented3 inherits Rectangle {
 
         f0 := Rectangle {
             horizontal-stretch: root.stretch ? 1 : 0;
-            height: 36px;
+            height: 32px;
             HorizontalLayout {
                 alignment: center;
                 padding-left: 14px;
                 padding-right: 14px;
                 Text {
                     text: root.label0;
-                    font-size: 13px;
+                    font-size: 12.5px;
                     font-weight: 600;
                     color: root.visual-idx == 0 ? Theme.text-primary : Theme.text-secondary;
                     vertical-alignment: center;
@@ -736,14 +732,14 @@ export component LiquidSegmented3 inherits Rectangle {
         }
         f1 := Rectangle {
             horizontal-stretch: root.stretch ? 1 : 0;
-            height: 36px;
+            height: 32px;
             HorizontalLayout {
                 alignment: center;
                 padding-left: 14px;
                 padding-right: 14px;
                 Text {
                     text: root.label1;
-                    font-size: 13px;
+                    font-size: 12.5px;
                     font-weight: 600;
                     color: root.visual-idx == 1 ? Theme.text-primary : Theme.text-secondary;
                     vertical-alignment: center;
@@ -753,14 +749,14 @@ export component LiquidSegmented3 inherits Rectangle {
         }
         f2 := Rectangle {
             horizontal-stretch: root.stretch ? 1 : 0;
-            height: 36px;
+            height: 32px;
             HorizontalLayout {
                 alignment: center;
                 padding-left: 14px;
                 padding-right: 14px;
                 Text {
                     text: root.label2;
-                    font-size: 13px;
+                    font-size: 12.5px;
                     font-weight: 600;
                     color: root.visual-idx == 2 ? Theme.text-primary : Theme.text-secondary;
                     vertical-alignment: center;
@@ -802,20 +798,20 @@ export component Toggle inherits Rectangle {
     in-out property <bool> checked: false;
     callback toggled(bool);
 
-    width: 52px;
-    height: 31px;
-    border-radius: 15.5px;
+    width: 50px;
+    height: 30px;
+    border-radius: 15px;
     background: checked ? Theme.green : Theme.fill-strong;
     animate background { duration: 200ms; }
 
-    property <length> thumb-w: ta.pressed ? 32px : 27px;
+    property <length> thumb-w: ta.pressed ? 30px : 26px;
 
     Rectangle {
         x: root.checked ? parent.width - root.thumb-w - 2px : 2px;
         y: 2px;
         width: root.thumb-w;
-        height: 27px;
-        border-radius: 13.5px;
+        height: 26px;
+        border-radius: 13px;
         background: #FFFFFF;
 
         animate x {
@@ -851,7 +847,7 @@ export component Slider inherits Rectangle {
     callback changed(int);
 
     property <float> ratio: Math.clamp((root.value - root.min-val) / Math.max(1, root.max-val - root.min-val), 0.0, 1.0);
-    property <length> thumb-size: track-ta.pressed ? 30px : (track-ta.has-hover ? 28px : 26px);
+    property <length> thumb-size: track-ta.pressed ? 28px : (track-ta.has-hover ? 26px : 24px);
 
     function set-from(mx: length) {
         let frac = Math.clamp((mx - 14px) / Math.max(1px, track.width - 28px), 0.0, 1.0);
@@ -864,59 +860,46 @@ export component Slider inherits Rectangle {
         }
     }
 
-    height: 70px;
+    height: 62px;
 
     VerticalLayout {
-        spacing: 8px;
+        spacing: 6px;
 
         HorizontalLayout {
             spacing: 8px;
             if root.icon != "": Icon {
                 text: root.icon;
-                font-size: 18px;
+                font-size: 17px;
                 color: Theme.accent;
             }
             Text {
                 text: root.title;
-                font-size: 14px;
+                font-size: 13.5px;
                 font-weight: 600;
                 color: Theme.text-primary;
                 vertical-alignment: center;
                 animate color { duration: 200ms; }
             }
             Rectangle { horizontal-stretch: 1; }
-            VerticalLayout {
-                alignment: center;
-                Rectangle {
-                    height: 26px;
-                    border-radius: 13px;
-                    background: track-ta.pressed ? Theme.droplet-bg : Theme.badge-pill-bg;
-                    animate background { duration: 140ms; }
-                    HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 12px;
-                        Text {
-                            text: root.value-text;
-                            font-size: 12.5px;
-                            font-weight: 700;
-                            color: Theme.accent-label;
-                            vertical-alignment: center;
-                            animate color { duration: 180ms; }
-                        }
-                    }
-                }
+            Text {
+                text: root.value-text;
+                font-size: 13px;
+                font-weight: 700;
+                color: Theme.accent-label;
+                vertical-alignment: center;
+                animate color { duration: 180ms; }
             }
         }
 
         track := Rectangle {
-            height: 30px;
+            height: 28px;
 
             Rectangle {
                 x: 0px;
                 y: (parent.height - self.height) / 2;
                 width: parent.width;
-                height: 6px;
-                border-radius: 3px;
+                height: 5px;
+                border-radius: 2.5px;
                 background: Theme.fill-strong;
                 animate background { duration: 180ms; }
             }
@@ -924,9 +907,9 @@ export component Slider inherits Rectangle {
             Rectangle {
                 x: 0px;
                 y: (parent.height - self.height) / 2;
-                width: 14px + (parent.width - 28px) * root.ratio;
-                height: 6px;
-                border-radius: 3px;
+                width: 12px + (parent.width - 24px) * root.ratio;
+                height: 5px;
+                border-radius: 2.5px;
                 background: @linear-gradient(90deg, #FFA45C 0%, #FF6A1F 100%);
                 animate width { duration: 110ms; easing: spring(0.0); }
             }
@@ -960,24 +943,25 @@ export component Field inherits Rectangle {
     in-out property <string> text;
     in property <string> placeholder: "";
     in property <string> icon: "";
+    in property <length> field-height: 44px;
     callback accepted;
     callback edited;
 
-    height: 48px;
-    border-radius: 16px;
+    height: field-height;
+    border-radius: self.height / 2;
     background: input.has-focus ? Theme.field-bg-focus : Theme.field-bg;
     border-width: input.has-focus ? 1.5px : 1px;
     border-color: input.has-focus ? Theme.accent : Theme.field-border;
     animate background, border-color { duration: 150ms; }
 
     HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 14px;
-        spacing: 10px;
+        padding-left: 15px;
+        padding-right: 15px;
+        spacing: 9px;
 
         if root.icon != "": Icon {
             text: root.icon;
-            font-size: 20px;
+            font-size: 18px;
             color: input.has-focus ? Theme.accent : Theme.text-muted;
             animate color { duration: 150ms; }
         }
@@ -986,17 +970,22 @@ export component Field inherits Rectangle {
             horizontal-stretch: 1;
 
             if root.text == "": Text {
+                width: 100%;
+                height: 100%;
                 text: root.placeholder;
-                font-size: 14px;
+                font-size: 13.5px;
                 color: Theme.text-muted;
+                horizontal-alignment: left;
                 vertical-alignment: center;
                 overflow: elide;
                 animate color { duration: 200ms; }
             }
 
             input := TextInput {
+                width: 100%;
+                height: 100%;
                 text <=> root.text;
-                font-size: 14px;
+                font-size: 13.5px;
                 color: Theme.text-primary;
                 selection-background-color: #FF6A1F55;
                 vertical-alignment: center;
@@ -1008,167 +997,7 @@ export component Field inherits Rectangle {
     }
 }
 
-// Clean borderless status chip
-export component Chip inherits Rectangle {
-    in property <string> text;
-    in property <color> dot: Theme.green;
-
-    height: 30px;
-    border-radius: 15px;
-    background: Theme.chip-bg;
-    animate background { duration: 200ms; }
-
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 13px;
-        spacing: 7px;
-        alignment: center;
-
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: root.dot;
-                animate background { duration: 200ms; }
-            }
-        }
-
-        Text {
-            text: root.text;
-            font-size: 12px;
-            font-weight: 600;
-            color: Theme.text-primary;
-            vertical-alignment: center;
-            animate color { duration: 200ms; }
-        }
-    }
-}
-
-// Inner tile with a big value
-export component StatTile inherits Rectangle {
-    in property <string> icon;
-    in property <string> label;
-    in property <string> value;
-    in property <color> icon-color: Theme.accent;
-
-    height: 68px;
-    border-radius: 18px;
-    background: ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
-    border-width: 1px;
-    border-color: Theme.inner-border;
-    animate background { duration: 150ms; }
-
-    ta := TouchArea { }
-
-    HorizontalLayout {
-        padding: 13px;
-        spacing: 12px;
-
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 38px;
-                height: 38px;
-                border-radius: 12px;
-                background: Theme.badge-pill-bg;
-                animate background { duration: 180ms; }
-                Icon {
-                    text: root.icon;
-                    font-size: 21px;
-                    color: root.icon-color;
-                }
-            }
-        }
-
-        VerticalLayout {
-            alignment: center;
-            spacing: 2px;
-            Text {
-                text: root.label;
-                font-size: 11.5px;
-                font-weight: 500;
-                color: Theme.text-muted;
-                animate color { duration: 200ms; }
-            }
-            Text {
-                text: root.value;
-                font-size: 15.5px;
-                font-weight: 700;
-                color: Theme.text-primary;
-                overflow: elide;
-                animate color { duration: 200ms; }
-            }
-        }
-    }
-}
-
-// Folder shortcut tile
-export component FolderTile inherits Rectangle {
-    in property <string> icon;
-    in property <string> title;
-    in property <string> subtitle;
-    in property <brush> icon-bg: @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%);
-    callback clicked;
-
-    height: 60px;
-    border-radius: 18px;
-    background: ta.pressed ? Theme.glass-hover : (ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile);
-    border-width: 1px;
-    border-color: Theme.inner-border;
-    animate background { duration: 150ms; }
-
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-top: ta.pressed ? 1.5px : 0px;
-        spacing: 11px;
-
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 36px;
-                height: 36px;
-                border-radius: 11px;
-                background: root.icon-bg;
-                Icon {
-                    text: root.icon;
-                    font-size: 20px;
-                    color: #FFFFFF;
-                }
-            }
-        }
-
-        VerticalLayout {
-            horizontal-stretch: 1;
-            alignment: center;
-            spacing: 1px;
-            Text {
-                text: root.title;
-                font-size: 13px;
-                font-weight: 600;
-                color: Theme.text-primary;
-                overflow: elide;
-                animate color { duration: 200ms; }
-            }
-            Text {
-                text: root.subtitle;
-                font-size: 11px;
-                color: Theme.text-muted;
-                overflow: elide;
-                animate color { duration: 200ms; }
-            }
-        }
-    }
-
-    ta := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.clicked(); }
-    }
-}
-
-// Settings row with a switch
+// Compact settings row with switch
 export component SettingRow inherits Rectangle {
     in property <string> icon;
     in property <string> title;
@@ -1176,11 +1005,9 @@ export component SettingRow inherits Rectangle {
     in-out property <bool> checked;
     callback toggled(bool);
 
-    height: 62px;
-    border-radius: 18px;
+    height: 58px;
+    border-radius: 16px;
     background: row-ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
-    border-width: 1px;
-    border-color: Theme.inner-border;
     animate background { duration: 150ms; }
 
     row-ta := TouchArea {
@@ -1198,27 +1025,21 @@ export component SettingRow inherits Rectangle {
 
         VerticalLayout {
             alignment: center;
-            Rectangle {
-                width: 36px;
-                height: 36px;
-                border-radius: 11px;
-                background: Theme.badge-pill-bg;
-                animate background { duration: 200ms; }
-                Icon {
-                    text: root.icon;
-                    font-size: 20px;
-                    color: Theme.accent;
-                }
+            Icon {
+                text: root.icon;
+                font-size: 20px;
+                color: Theme.accent;
             }
         }
 
         VerticalLayout {
             horizontal-stretch: 1;
+            preferred-width: 0px;
             alignment: center;
             spacing: 1px;
             Text {
                 text: root.title;
-                font-size: 14px;
+                font-size: 13.5px;
                 font-weight: 600;
                 color: Theme.text-primary;
                 animate color { duration: 200ms; }
@@ -1227,6 +1048,7 @@ export component SettingRow inherits Rectangle {
                 text: root.subtitle;
                 font-size: 11.5px;
                 color: Theme.text-muted;
+                overflow: elide;
                 animate color { duration: 200ms; }
             }
         }

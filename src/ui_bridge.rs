@@ -101,7 +101,6 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         write_picked_shader_pack(&game_dir, &picked);
     }
     update_mods_ui(window, &game_dir, &mods_dir, &config);
-    update_engine_mods_ui(window, &game_dir);
 
     // 3. Initial Logs (Empty by default, showing only real game logs)
     let log_entries = Arc::new(Mutex::new(Vec::<LogEntry>::new()));
@@ -229,28 +228,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         window.on_refresh_mods(move || {
             if let Some(w) = window_weak.upgrade() {
                 update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
-                update_engine_mods_ui(&w, &game_dir_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
-            }
-        });
-    }
-    {
-        let window_weak = window.as_weak();
-        let game_dir_clone = game_dir.clone();
-        window.on_toggle_engine_mod(move |mod_id| {
-            engine_mods::toggle_engine_mod(&game_dir_clone, &mod_id);
-            if let Some(w) = window_weak.upgrade() {
-                update_engine_mods_ui(&w, &game_dir_clone);
-            }
-        });
-    }
-    {
-        let window_weak = window.as_weak();
-        let game_dir_clone = game_dir.clone();
-        window.on_apply_pvp_preset(move || {
-            engine_mods::apply_pvp_preset(&game_dir_clone);
-            if let Some(w) = window_weak.upgrade() {
-                update_engine_mods_ui(&w, &game_dir_clone);
             }
         });
     }
@@ -963,23 +941,6 @@ fn update_mods_ui(
     window.set_mods(ModelRc::new(VecModel::from(mods)));
     window.set_active_mods_count(active_count);
     window.set_total_mods_count(total_count);
-}
-
-fn update_engine_mods_ui(window: &AppWindow, game_dir: &Path) {
-    let states = engine_mods::load_engine_mod_states(game_dir);
-    let active = states.iter().filter(|(_, on)| *on).count() as i32;
-    let items: Vec<EngineModInfo> = states
-        .into_iter()
-        .map(|(spec, enabled)| EngineModInfo {
-            id: spec.id.into(),
-            name: spec.name.into(),
-            description: spec.description.into(),
-            category: spec.category.into(),
-            enabled,
-        })
-        .collect();
-    window.set_engine_mods(ModelRc::new(VecModel::from(items)));
-    window.set_active_engine_mods_count(active);
 }
 
 fn setup_client_unpacking(window: &AppWindow) {
