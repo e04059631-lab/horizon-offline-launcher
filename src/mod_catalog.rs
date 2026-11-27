@@ -199,7 +199,7 @@ pub fn fetch_icon_cached(
     }?;
 
     let decoded = image::load_from_memory(&raw_bytes).ok()?;
-    let resized = decoded.resize_to_fill(96, 96, image::imageops::FilterType::Triangle);
+    let resized = decoded.resize_to_fill(64, 64, image::imageops::FilterType::Triangle);
     let rgba = resized.to_rgba8();
     Some((rgba.width(), rgba.height(), rgba.into_raw()))
 }

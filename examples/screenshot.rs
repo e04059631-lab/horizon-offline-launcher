@@ -107,8 +107,8 @@ fn main() {
     app.show().unwrap();
 
     let shots: [(&str, u32, u32, i32, i32, bool, &str, bool); 2] = [
-        ("v7_settings", 1100, 720, 2, 0, true, "blue", false),
-        ("v7_update_dialog", 1100, 720, 0, 0, true, "blue", true),
+        ("v8_mods_catalog_lv", 1100, 720, 1, 0, true, "blue", false),
+        ("v8_mods_installed_lv", 1100, 720, 1, 1, true, "blue", false),
     ];
 
     for (name, w, h, tab, mods_view, dark, bg, show_upd) in shots {

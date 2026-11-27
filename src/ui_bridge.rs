@@ -5,7 +5,7 @@ use crate::game_process::GameProcess;
 use crate::mod_catalog::{self, RemoteMod};
 use crate::shader_combiner;
 use crate::updater::{self, UpdateInfo};
-use slint::{ComponentHandle, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
+use slint::{ComponentHandle, Image, Model, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -872,11 +872,24 @@ fn spawn_fetch_catalog(
 
     thread::spawn(move || match mod_catalog::fetch_catalog(&repo_url) {
         Ok((_resolved_url, mods)) => {
-            let icon_jobs: Vec<(String, String)> = mods
+            // Prioritize icons for installed mods first, then top catalog items in order
+            let installed_files = installed_mod_base_names(&game_dir, &mods_dir);
+            let installed_ids: HashSet<String> = mods
                 .iter()
-                .filter(|m| !m.icon_url.is_empty())
+                .filter(|m| installed_files.contains(&m.file_name.to_lowercase()))
+                .map(|m| m.id.clone())
+                .collect();
+
+            let mut icon_jobs: Vec<(String, String)> = mods
+                .iter()
+                .filter(|m| !m.icon_url.is_empty() && installed_ids.contains(&m.id))
                 .map(|m| (m.id.clone(), m.icon_url.clone()))
                 .collect();
+            icon_jobs.extend(
+                mods.iter()
+                    .filter(|m| !m.icon_url.is_empty() && !installed_ids.contains(&m.id))
+                    .map(|m| (m.id.clone(), m.icon_url.clone())),
+            );
 
             {
                 let mut state = catalog_state.lock().unwrap();
@@ -894,61 +907,71 @@ fn spawn_fetch_catalog(
                 rebuild_catalog_ui(&w, &catalog_for_ui, &game_dir_for_ui, &mods_dir_for_ui);
             });
 
-            // Fetch mod icons in 6 parallel worker threads for snappy loading of 50+ icons
+            // Fetch mod icons in 6 parallel worker threads and patch ONLY modified rows in-place (O(1), zero scroll lag!)
             if !icon_jobs.is_empty() {
                 let queue = Arc::new(Mutex::new(icon_jobs.into_iter()));
+                let installed_ids_arc = Arc::new(installed_ids);
                 let mut handles = Vec::new();
                 for _ in 0..6 {
                     let q = Arc::clone(&queue);
                     let cache_dir = icon_cache_dir.clone();
                     let state_arc = Arc::clone(&catalog_state);
                     let cfg_arc = Arc::clone(&config);
+                    let inst_arc = Arc::clone(&installed_ids_arc);
                     let w_weak = window_weak.clone();
                     let g_dir = game_dir.clone();
                     let m_dir = mods_dir.clone();
                     handles.push(thread::spawn(move || {
-                        let mut loaded_in_worker = 0usize;
+                        let mut batch: Vec<(String, u32, u32, Vec<u8>)> = Vec::with_capacity(12);
+                        let mut touched_installed = false;
                         loop {
                             let next = { q.lock().unwrap().next() };
                             let Some((id, icon_url)) = next else { break };
-                            if let Some(rgba) =
+                            if let Some((iw, ih, bytes)) =
                                 mod_catalog::fetch_icon_cached(&cache_dir, &id, &icon_url)
                             {
+                                if inst_arc.contains(&id) {
+                                    touched_installed = true;
+                                }
                                 {
                                     let mut state = state_arc.lock().unwrap();
-                                    state.icons.insert(id, rgba);
+                                    state.icons.insert(id.clone(), (iw, ih, bytes.clone()));
                                 }
-                                loaded_in_worker += 1;
-                                if loaded_in_worker % 6 == 0 {
+                                batch.push((id, iw, ih, bytes));
+                                if batch.len() >= 10 {
+                                    let flush = std::mem::take(&mut batch);
+                                    let refresh_my = touched_installed;
+                                    touched_installed = false;
                                     let c = Arc::clone(&state_arc);
                                     let cfg = Arc::clone(&cfg_arc);
                                     let gd = g_dir.clone();
                                     let md = m_dir.clone();
                                     let _ = w_weak.upgrade_in_event_loop(move |w| {
-                                        update_mods_ui(&w, &gd, &md, &cfg, &c);
-                                        rebuild_catalog_ui(&w, &c, &gd, &md);
+                                        apply_catalog_icons_in_place(&w, &flush);
+                                        if refresh_my {
+                                            update_mods_ui(&w, &gd, &md, &cfg, &c);
+                                        }
                                     });
                                 }
                             }
                         }
-                        loaded_in_worker > 0
+                        if !batch.is_empty() {
+                            let refresh_my = touched_installed;
+                            let c = Arc::clone(&state_arc);
+                            let cfg = Arc::clone(&cfg_arc);
+                            let gd = g_dir.clone();
+                            let md = m_dir.clone();
+                            let _ = w_weak.upgrade_in_event_loop(move |w| {
+                                apply_catalog_icons_in_place(&w, &batch);
+                                if refresh_my {
+                                    update_mods_ui(&w, &gd, &md, &cfg, &c);
+                                }
+                            });
+                        }
                     }));
                 }
-                let mut any_loaded = false;
                 for h in handles {
-                    if let Ok(true) = h.join() {
-                        any_loaded = true;
-                    }
-                }
-                if any_loaded {
-                    let catalog_for_icons = Arc::clone(&catalog_state);
-                    let config_for_icons = Arc::clone(&config);
-                    let game_dir_for_icons = game_dir.clone();
-                    let mods_dir_for_icons = mods_dir.clone();
-                    let _ = window_weak.upgrade_in_event_loop(move |w| {
-                        update_mods_ui(&w, &game_dir_for_icons, &mods_dir_for_icons, &config_for_icons, &catalog_for_icons);
-                        rebuild_catalog_ui(&w, &catalog_for_icons, &game_dir_for_icons, &mods_dir_for_icons);
-                    });
+                    let _ = h.join();
                 }
             }
         }
@@ -959,6 +982,28 @@ fn spawn_fetch_catalog(
             });
         }
     });
+}
+
+fn apply_catalog_icons_in_place(window: &AppWindow, batch: &[(String, u32, u32, Vec<u8>)]) {
+    let model_rc = window.get_catalog_mods();
+    let Some(vec_model) = model_rc.as_any().downcast_ref::<VecModel<CatalogModInfo>>() else {
+        return;
+    };
+    let lookup: HashMap<&str, (u32, u32, &[u8])> = batch
+        .iter()
+        .map(|(id, w, h, b)| (id.as_str(), (*w, *h, b.as_slice())))
+        .collect();
+    let len = vec_model.row_count();
+    for i in 0..len {
+        if let Some(mut row) = vec_model.row_data(i) {
+            if let Some(&(w, h, bytes)) = lookup.get(row.id.as_str()) {
+                let buf = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(bytes, w, h);
+                row.has_icon = true;
+                row.icon = Image::from_rgba8(buf);
+                vec_model.set_row_data(i, row);
+            }
+        }
+    }
 }
 
 fn rebuild_catalog_ui(
@@ -1298,7 +1343,7 @@ fn ensure_game_dirs(config: &LauncherConfig) -> (PathBuf, PathBuf, PathBuf, Path
 
 fn decode_icon_bytes(bytes: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
     let img = image::load_from_memory(bytes).ok()?;
-    let resized = img.resize_to_fill(96, 96, image::imageops::FilterType::Triangle);
+    let resized = img.resize_to_fill(64, 64, image::imageops::FilterType::Triangle);
     let rgba = resized.to_rgba8();
     Some((rgba.width(), rgba.height(), rgba.into_raw()))
 }

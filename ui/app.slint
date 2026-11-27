@@ -1,4 +1,4 @@
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, ListView } from "std-widgets.slint";
 import { Backdrop, Theme } from "theme.slint";
 import {
     Icon,
@@ -685,7 +685,7 @@ export component AppWindow inherits Window {
                                     field-height: 40px;
                                     icon: "\u{e8b6}";
                                     text <=> root.catalog-search;
-                                    placeholder: "Поиск шейдеров и PvP-паков...";
+                                    placeholder: "Поиск шейдеров и паков...";
                                     edited => { root.search-catalog(root.catalog-search); }
                                 }
                             }
@@ -741,7 +741,7 @@ export component AppWindow inherits Window {
                                 stretch: true;
                                 label0: "Все";
                                 label1: "Шейдеры";
-                                label2: "PvP-паки";
+                                label2: "Паки";
                                 selected <=> root.catalog-filter;
                                 changed(idx) => { root.filter-catalog(idx); }
                             }
@@ -832,31 +832,30 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.mods-view == 0 && root.catalog-mods.length > 0: cat-sv := ScrollView {
+                        if root.mods-view == 0 && root.catalog-mods.length > 0: cat-lv := ListView {
                             vertical-stretch: 1;
-                            content-width: cat-sv.visible-width;
 
-                            VerticalLayout {
-                                width: cat-sv.visible-width;
-                                spacing: 8px;
-                                padding-top: 2px;
-                                padding-bottom: 10px;
-                                padding-right: 6px;
+                            for cmod in root.catalog-mods: Rectangle {
+                                width: cat-lv.visible-width;
+                                height: 82px;
+                                background: transparent;
 
-                                for cmod in root.catalog-mods: Rectangle {
-                                    height: Math.max(72px, card-content.preferred-height);
+                                Rectangle {
+                                    x: 0px;
+                                    y: 2px;
+                                    width: Math.max(0px, parent.width - 8px);
+                                    height: 74px;
                                     border-radius: 18px;
                                     background: card-ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
                                     clip: true;
-                                    animate background { duration: 150ms; }
 
                                     card-ta := TouchArea { }
 
-                                    card-content := HorizontalLayout {
+                                    HorizontalLayout {
                                         padding-left: 14px;
                                         padding-right: 14px;
-                                        padding-top: 11px;
-                                        padding-bottom: 11px;
+                                        padding-top: 10px;
+                                        padding-bottom: 10px;
                                         spacing: 14px;
 
                                         VerticalLayout {
@@ -887,7 +886,7 @@ export component AppWindow inherits Window {
                                             horizontal-stretch: 1;
                                             preferred-width: 0px;
                                             alignment: center;
-                                            spacing: 3px;
+                                            spacing: 4px;
 
                                             HorizontalLayout {
                                                 spacing: 8px;
@@ -898,7 +897,6 @@ export component AppWindow inherits Window {
                                                     font-weight: 700;
                                                     color: Theme.text-primary;
                                                     overflow: elide;
-                                                    animate color { duration: 160ms; }
                                                 }
                                                 VerticalLayout {
                                                     alignment: center;
@@ -910,7 +908,7 @@ export component AppWindow inherits Window {
                                                             padding-left: 8px;
                                                             padding-right: 8px;
                                                             Text {
-                                                                text: cmod.is-shader ? "Шейдер" : (cmod.is-resourcepack ? "PvP-пак" : "Мод");
+                                                                text: cmod.is-shader ? "Шейдер" : (cmod.is-resourcepack ? "Пак" : "Мод");
                                                                 font-size: 11px;
                                                                 font-weight: 600;
                                                                 color: Theme.text-secondary;
@@ -925,16 +923,15 @@ export component AppWindow inherits Window {
                                                 text: cmod.description != "" ? cmod.description : cmod.file-name;
                                                 font-size: 12px;
                                                 color: Theme.text-secondary;
-                                                wrap: word-wrap;
-                                                animate color { duration: 160ms; }
+                                                overflow: elide;
                                             }
                                         }
 
                                         if cmod.size-kb > 0: VerticalLayout {
                                             alignment: center;
                                             Text {
-                                                min-width: 48px;
-                                                text: "\{cmod.size-kb} КБ";
+                                                min-width: 54px;
+                                                text: cmod.size-kb >= 1024 ? "\{Math.round(cmod.size-kb / 102.4) / 10} МБ" : "\{cmod.size-kb} КБ";
                                                 font-size: 12px;
                                                 color: Theme.text-muted;
                                                 horizontal-alignment: right;
@@ -961,13 +958,10 @@ export component AppWindow inherits Window {
                                                     background: cat-del-ta.has-hover ? #FF3B3030 : Theme.fill;
                                                     border-width: 1px;
                                                     border-color: cat-del-ta.has-hover ? #FF3B3060 : Theme.fill-strong;
-                                                    animate background { duration: 140ms; }
-                                                    animate border-color { duration: 140ms; }
                                                     Icon {
                                                         text: "\u{e872}";
                                                         font-size: 18px;
                                                         color: cat-del-ta.has-hover ? Theme.red : Theme.text-secondary;
-                                                        animate color { duration: 140ms; }
                                                     }
                                                     cat-del-ta := TouchArea {
                                                         mouse-cursor: pointer;
@@ -1023,25 +1017,24 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.mods-view == 1 && root.mods.length > 0: my-sv := ScrollView {
+                        if root.mods-view == 1 && root.mods.length > 0: my-lv := ListView {
                             vertical-stretch: 1;
-                            content-width: my-sv.visible-width;
 
-                            VerticalLayout {
-                                width: my-sv.visible-width;
-                                spacing: 8px;
-                                padding-top: 2px;
-                                padding-bottom: 10px;
-                                padding-right: 6px;
+                            for item in root.mods: Rectangle {
+                                width: my-lv.visible-width;
+                                height: 72px;
+                                background: transparent;
 
-                                for item in root.mods: Rectangle {
+                                Rectangle {
+                                    x: 0px;
+                                    y: 2px;
+                                    width: Math.max(0px, parent.width - 8px);
                                     height: 64px;
                                     border-radius: 18px;
                                     clip: true;
                                     background: mod-ta.has-hover
                                         ? Theme.inner-tile-hover
                                         : (item.enabled ? Theme.inner-tile : Theme.inner-tile-disabled);
-                                    animate background { duration: 150ms; }
 
                                     mod-ta := TouchArea {
                                         mouse-cursor: pointer;
@@ -1097,11 +1090,10 @@ export component AppWindow inherits Window {
                                                 font-weight: 600;
                                                 color: item.enabled ? Theme.text-primary : Theme.text-muted;
                                                 overflow: elide;
-                                                animate color { duration: 160ms; }
                                             }
                                             Text {
-                                                text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "PvP-пак · " : "Мод · "))
-                                                    + "\{item.size-kb} КБ · "
+                                                text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "Пак · " : "Мод · "))
+                                                    + (item.size-kb >= 1024 ? "\{Math.round(item.size-kb / 102.4) / 10} МБ · " : "\{item.size-kb} КБ · ")
                                                     + (item.enabled ? "включён" : "выключен");
                                                 font-size: 12px;
                                                 color: Theme.text-muted;
@@ -1116,12 +1108,10 @@ export component AppWindow inherits Window {
                                                 height: 34px;
                                                 border-radius: 17px;
                                                 background: del-ta.has-hover ? #FF3B3028 : transparent;
-                                                animate background { duration: 140ms; }
                                                 Icon {
                                                     text: "\u{e872}";
                                                     font-size: 18px;
                                                     color: del-ta.has-hover ? Theme.red : Theme.text-muted;
-                                                    animate color { duration: 140ms; }
                                                 }
                                                 del-ta := TouchArea {
                                                     mouse-cursor: pointer;
