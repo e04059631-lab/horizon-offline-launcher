@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_fetch_live_github_catalog() {
-        let url = "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json";
+        let url = "https://raw.githubusercontent.com/xwwerz/horizon-mods/main/catalog.json";
         let (resolved, mods) = fetch_catalog(url).expect("catalog fetch should succeed over HTTPS");
         assert_eq!(resolved, url);
         assert!(mods.len() >= 56, "catalog should contain all 56 client-side mods, got {}", mods.len());

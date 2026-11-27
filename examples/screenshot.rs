@@ -34,7 +34,7 @@ fn main() {
     app.set_nickname("wwerz".into());
     app.set_client_ready(true);
     app.set_has_embedded_payload(true);
-    app.set_mods_repo_url("https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json".into());
+    app.set_mods_repo_url("https://raw.githubusercontent.com/xwwerz/horizon-mods/main/catalog.json".into());
     app.set_mods(ModelRc::new(VecModel::from(vec![
         ModInfo { name: "motion-blur.hshader".into(), file_name: "motion-blur.hshader".into(), size_kb: 2, enabled: true, is_shader: true, is_resourcepack: false },
         ModInfo { name: "horizon-ultra.hshader".into(), file_name: "horizon-ultra.hshader".into(), size_kb: 3, enabled: true, is_shader: true, is_resourcepack: false },

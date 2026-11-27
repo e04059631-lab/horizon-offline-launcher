@@ -11,6 +11,7 @@ static BG_BLUE: &[u8] = include_bytes!("../assets/bg-blue.jpg");
 static BG_AURORA: &[u8] = include_bytes!("../assets/bg-aurora.jpg");
 static BG_DUSK: &[u8] = include_bytes!("../assets/bg-dusk.jpg");
 static BG_SUNSET: &[u8] = include_bytes!("../assets/bg-sunset.jpg");
+static APP_ICON_PNG: &[u8] = include_bytes!("../assets/icon-256.png");
 
 const BLUR_SIGMA: f32 = 8.5;
 const DOWNSCALE: u32 = 4;
@@ -18,6 +19,7 @@ const MAX_CUSTOM_DIM: u32 = 1920;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AccentPalette {
+    pub hue_deg: f64,
     pub accent: Color,
     pub hover: Color,
     pub pressed: Color,
@@ -100,6 +102,93 @@ pub fn apply_preset(window: &AppWindow, preset: &str, custom_path: Option<&Path>
     let backdrop = window.global::<Backdrop>();
     backdrop.set_sharp(to_slint(&sharp));
     backdrop.set_blurred(to_slint(&frosted));
+    if let Some(tinted) = recolor_app_icon(palette.hue_deg) {
+        backdrop.set_tinted_icon(tinted);
+    }
+}
+
+/// Hue-rotates the embedded blue `H` squircle app icon to match any wallpaper accent
+/// while keeping the white serif `H` crisp and edges smoothly anti-aliased.
+fn recolor_app_icon(target_hue_deg: f64) -> Option<Image> {
+    let mut icon = image::load_from_memory(APP_ICON_PNG).ok()?.to_rgba8();
+    // Base cyan-blue hue center of assets/icon-256.png is ~206 degrees
+    let hue_shift = target_hue_deg - 206.0;
+    let darken_mid = if (42.0..155.0).contains(&target_hue_deg) {
+        -0.06
+    } else {
+        0.0
+    };
+
+    for p in icon.pixels_mut() {
+        let [r8, g8, b8, a8] = p.0;
+        if a8 == 0 {
+            continue;
+        }
+        let (h, s, l) = rgb_to_hsl(r8, g8, b8);
+        if s < 0.05 {
+            continue;
+        }
+        let new_h = (h + hue_shift).rem_euclid(360.0);
+        // Keep near-white H glyph crisp bright white while richly tinting the squircle backdrop
+        let new_l = if l < 0.80 && s > 0.35 {
+            (l + darken_mid).clamp(0.18, 0.82)
+        } else {
+            l
+        };
+        let (nr, ng, nb) = hsl_to_rgb_u8(new_h, s, new_l);
+        p.0 = [nr, ng, nb, a8];
+    }
+    Some(to_slint(&icon))
+}
+
+fn rgb_to_hsl(r8: u8, g8: u8, b8: u8) -> (f64, f64, f64) {
+    let r = r8 as f64 / 255.0;
+    let g = g8 as f64 / 255.0;
+    let b = b8 as f64 / 255.0;
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let l = (max + min) * 0.5;
+    let d = max - min;
+    if d < 1e-6 {
+        return (0.0, 0.0, l);
+    }
+    let s = d / (1.0 - (2.0 * l - 1.0).abs()).max(1e-6);
+    let mut h = if (max - r).abs() < 1e-9 {
+        60.0 * (((g - b) / d) % 6.0)
+    } else if (max - g).abs() < 1e-9 {
+        60.0 * (((b - r) / d) + 2.0)
+    } else {
+        60.0 * (((r - g) / d) + 4.0)
+    };
+    if h < 0.0 {
+        h += 360.0;
+    }
+    (h, s.clamp(0.0, 1.0), l)
+}
+
+fn hsl_to_rgb_u8(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let hp = (h.rem_euclid(360.0)) / 60.0;
+    let x = c * (1.0 - (hp % 2.0 - 1.0).abs());
+    let (r1, g1, b1) = if hp < 1.0 {
+        (c, x, 0.0)
+    } else if hp < 2.0 {
+        (x, c, 0.0)
+    } else if hp < 3.0 {
+        (0.0, c, x)
+    } else if hp < 4.0 {
+        (0.0, x, c)
+    } else if hp < 5.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    let m = l - c / 2.0;
+    (
+        ((r1 + m).clamp(0.0, 1.0) * 255.0).round() as u8,
+        ((g1 + m).clamp(0.0, 1.0) * 255.0).round() as u8,
+        ((b1 + m).clamp(0.0, 1.0) * 255.0).round() as u8,
+    )
 }
 
 fn apply_accent_palette(window: &AppWindow, p: AccentPalette) {
@@ -214,6 +303,7 @@ pub fn extract_accent_palette(img: &RgbaImage) -> AccentPalette {
     };
 
     AccentPalette {
+        hue_deg,
         accent: hsl_to_color(hue_deg, sat_ui, l_base, 242),
         hover: hsl_to_color(hue_deg, (sat_ui + 0.04).min(0.94), (l_base + 0.06).min(0.68), 250),
         pressed: hsl_to_color(hue_deg, sat_ui, (l_base - 0.08).max(0.28), 245),
@@ -225,26 +315,7 @@ pub fn extract_accent_palette(img: &RgbaImage) -> AccentPalette {
 }
 
 fn hsl_to_color(h: f64, s: f64, l: f64, alpha: u8) -> Color {
-    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
-    let hp = (h % 360.0) / 60.0;
-    let x = c * (1.0 - (hp % 2.0 - 1.0).abs());
-    let (r1, g1, b1) = if hp < 1.0 {
-        (c, x, 0.0)
-    } else if hp < 2.0 {
-        (x, c, 0.0)
-    } else if hp < 3.0 {
-        (0.0, c, x)
-    } else if hp < 4.0 {
-        (0.0, x, c)
-    } else if hp < 5.0 {
-        (x, 0.0, c)
-    } else {
-        (c, 0.0, x)
-    };
-    let m = l - c / 2.0;
-    let r = ((r1 + m).clamp(0.0, 1.0) * 255.0).round() as u8;
-    let g = ((g1 + m).clamp(0.0, 1.0) * 255.0).round() as u8;
-    let b = ((b1 + m).clamp(0.0, 1.0) * 255.0).round() as u8;
+    let (r, g, b) = hsl_to_rgb_u8(h, s, l);
     Color::from_argb_u8(alpha, r, g, b)
 }
 

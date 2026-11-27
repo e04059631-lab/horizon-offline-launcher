@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn default_mods_repo_url() -> String {
-    "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json".to_string()
+    "https://raw.githubusercontent.com/xwwerz/horizon-mods/main/catalog.json".to_string()
 }
 
 pub fn default_backdrop_preset() -> String {
@@ -119,6 +119,7 @@ impl LauncherConfig {
                     }
                     if config.mods_repo_url.trim().is_empty()
                         || config.mods_repo_url.contains("wwerz1/horizon-mods")
+                        || config.mods_repo_url.contains("e04059631-lab/horizon-mods")
                     {
                         config.mods_repo_url = default_mods_repo_url();
                         migrated = true;

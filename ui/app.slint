@@ -55,7 +55,7 @@ export struct LogEntry {
 
 export component AppWindow inherits Window {
     title: "Horizon Offline — 26.3";
-    icon: @image-url("../assets/icon-256.png");
+    icon: Backdrop.tinted-icon;
     default-font-family: "Google Sans";
     preferred-width: 1100px;
     preferred-height: 720px;
@@ -232,7 +232,7 @@ export component AppWindow inherits Window {
                             Image {
                                 width: 100%;
                                 height: 100%;
-                                source: @image-url("../assets/icon-256.png");
+                                source: Backdrop.tinted-icon;
                                 image-fit: cover;
                             }
                         }
@@ -240,7 +240,7 @@ export component AppWindow inherits Window {
 
                     Text {
                         text: "Horizon";
-                        font-size: 14.5px;
+                        font-size: 14px;
                         font-weight: 700;
                         color: Theme.text-primary;
                         vertical-alignment: center;
@@ -308,7 +308,7 @@ export component AppWindow inherits Window {
 
                     Text {
                         text: root.nickname == "" ? "Войти" : root.nickname;
-                        font-size: 13.5px;
+                        font-size: 13px;
                         font-weight: 600;
                         color: Theme.text-primary;
                         vertical-alignment: center;
@@ -406,7 +406,7 @@ export component AppWindow inherits Window {
                                         Image {
                                             width: 100%;
                                             height: 100%;
-                                            source: @image-url("../assets/icon-256.png");
+                                            source: Backdrop.tinted-icon;
                                             image-fit: cover;
                                         }
                                     }
@@ -421,7 +421,7 @@ export component AppWindow inherits Window {
                                         alignment: start;
                                         Text {
                                             text: "Minecraft 26.3";
-                                            font-size: 15.5px;
+                                            font-size: 15px;
                                             font-weight: 700;
                                             color: Theme.text-primary;
                                             vertical-alignment: center;
@@ -447,7 +447,7 @@ export component AppWindow inherits Window {
                                                     }
                                                     Text {
                                                         text: root.is-playing ? "В игре" : "Horizon";
-                                                        font-size: 10.5px;
+                                                        font-size: 11px;
                                                         font-weight: 600;
                                                         color: Theme.text-secondary;
                                                         vertical-alignment: center;
@@ -733,7 +733,7 @@ export component AppWindow inherits Window {
 
                             Text {
                                 text: root.catalog-loading ? "Загрузка с GitHub..." : "Доступно: \{root.catalog-mods.length}";
-                                font-size: 12.5px;
+                                font-size: 12px;
                                 font-weight: 500;
                                 color: Theme.text-muted;
                                 vertical-alignment: center;
@@ -756,7 +756,7 @@ export component AppWindow inherits Window {
                                     horizontal-stretch: 1;
                                     preferred-width: 0px;
                                     text: root.catalog-error;
-                                    font-size: 12.5px;
+                                    font-size: 12px;
                                     color: Theme.dark ? #FF8A80 : #B0000F;
                                     wrap: word-wrap;
                                     vertical-alignment: center;
@@ -791,7 +791,7 @@ export component AppWindow inherits Window {
                                     text: root.catalog-search != ""
                                         ? "Попробуй изменить запрос или фильтр категории"
                                         : "Проверь подключение или нажми «Обновить»";
-                                    font-size: 12.5px;
+                                    font-size: 12px;
                                     color: Theme.text-muted;
                                     horizontal-alignment: center;
                                 }
@@ -877,7 +877,7 @@ export component AppWindow inherits Window {
                                                 alignment: start;
                                                 Text {
                                                     text: cmod.name;
-                                                    font-size: 14.5px;
+                                                    font-size: 14px;
                                                     font-weight: 700;
                                                     color: Theme.text-primary;
                                                     overflow: elide;
@@ -894,7 +894,7 @@ export component AppWindow inherits Window {
                                                             padding-right: 8px;
                                                             Text {
                                                                 text: cmod.is-shader ? "Шейдер" : (cmod.is-resourcepack ? "PvP-пак" : "Мод");
-                                                                font-size: 10.5px;
+                                                                font-size: 11px;
                                                                 font-weight: 600;
                                                                 color: Theme.text-secondary;
                                                                 vertical-alignment: center;
@@ -906,7 +906,7 @@ export component AppWindow inherits Window {
 
                                             Text {
                                                 text: cmod.description != "" ? cmod.description : cmod.file-name;
-                                                font-size: 12.5px;
+                                                font-size: 12px;
                                                 color: Theme.text-secondary;
                                                 wrap: word-wrap;
                                                 animate color { duration: 160ms; }
@@ -959,14 +959,14 @@ export component AppWindow inherits Window {
                                 }
                                 Text {
                                     text: "Пока нет установленных модов";
-                                    font-size: 16.5px;
+                                    font-size: 16px;
                                     font-weight: 700;
                                     color: Theme.text-primary;
                                     horizontal-alignment: center;
                                 }
                                 Text {
                                     text: "Выбери нужные шейдеры и PvP-паки в каталоге";
-                                    font-size: 12.5px;
+                                    font-size: 12px;
                                     color: Theme.text-muted;
                                     horizontal-alignment: center;
                                 }
@@ -1041,7 +1041,7 @@ export component AppWindow inherits Window {
                                             spacing: 2px;
                                             Text {
                                                 text: item.name;
-                                                font-size: 14.5px;
+                                                font-size: 14px;
                                                 font-weight: 600;
                                                 color: item.enabled ? Theme.text-primary : Theme.text-muted;
                                                 overflow: elide;
@@ -1199,7 +1199,7 @@ export component AppWindow inherits Window {
 
                             Rectangle { height: 1px; background: Theme.fill; }
 
-                            // Balanced full-width 2-column core settings
+                            // Balanced full-width 2-column core settings (identical 38px header baseline!)
                             HorizontalLayout {
                                 spacing: 26px;
 
@@ -1210,9 +1210,10 @@ export component AppWindow inherits Window {
                                     spacing: 12px;
 
                                     HorizontalLayout {
+                                        height: 38px;
                                         Text {
                                             text: "Производительность";
-                                            font-size: 16.5px;
+                                            font-size: 16px;
                                             font-weight: 700;
                                             color: Theme.text-primary;
                                             vertical-alignment: center;
@@ -1259,12 +1260,13 @@ export component AppWindow inherits Window {
                                 VerticalLayout {
                                     horizontal-stretch: 1;
                                     preferred-width: 0px;
-                                    spacing: 10px;
+                                    spacing: 12px;
 
                                     HorizontalLayout {
+                                        height: 38px;
                                         Text {
                                             text: "Экран и игра";
-                                            font-size: 16.5px;
+                                            font-size: 16px;
                                             font-weight: 700;
                                             color: Theme.text-primary;
                                             vertical-alignment: center;
@@ -1272,7 +1274,7 @@ export component AppWindow inherits Window {
                                         Rectangle { horizontal-stretch: 1; }
                                         Text {
                                             text: "\{root.window-width} × \{root.window-height}";
-                                            font-size: 12.5px;
+                                            font-size: 13px;
                                             font-weight: 600;
                                             color: Theme.text-muted;
                                             vertical-alignment: center;
@@ -1320,7 +1322,7 @@ export component AppWindow inherits Window {
 
                                 Text {
                                     text: "Каталог и файлы";
-                                    font-size: 16.5px;
+                                    font-size: 16px;
                                     font-weight: 700;
                                     color: Theme.text-primary;
                                 }
@@ -1497,7 +1499,7 @@ export component AppWindow inherits Window {
                                             Text {
                                                 text: entry.text;
                                                 font-family: "Consolas";
-                                                font-size: 12.5px;
+                                                font-size: 12px;
                                                 color: Theme.dark
                                                     ? (entry.level == 2 ? #FF7A73 : (entry.level == 1 ? #FFD166 : #E6EAF2))
                                                     : entry.color;
@@ -1583,7 +1585,7 @@ export component AppWindow inherits Window {
                         }
                         Text {
                             text: "Любой оффлайн-ник без лицензии";
-                            font-size: 12.5px;
+                            font-size: 12px;
                             color: Theme.text-muted;
                         }
                     }
@@ -1706,7 +1708,7 @@ export component AppWindow inherits Window {
                     }
                     Text {
                         text: "Первый запуск — распаковываем встроенные ассеты";
-                        font-size: 12.5px;
+                        font-size: 12px;
                         color: Theme.text-muted;
                     }
                 }
@@ -1745,7 +1747,7 @@ export component AppWindow inherits Window {
                     spacing: 12px;
                     Text {
                         text: root.unpack-error-text;
-                        font-size: 12.5px;
+                        font-size: 12px;
                         color: Theme.red;
                         wrap: word-wrap;
                     }
