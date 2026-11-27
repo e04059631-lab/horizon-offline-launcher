@@ -1,5 +1,4 @@
-//! Dev tool: renders the redesigned launcher UI headlessly into PNG files (light & dark).
-//! Usage: cargo run --example screenshot -- <out_dir>
+//! Dev tool: renders the redesigned launcher UI headlessly at standard (1100x720) and narrow (940x640) widths.
 
 use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType};
 use slint::platform::{Platform, WindowAdapter};
@@ -24,11 +23,10 @@ impl Platform for Headless {
 
 fn main() {
     let out_dir = std::env::args().nth(1).unwrap_or_else(|| ".".into());
-    let (w, h) = (1100u32, 720u32);
 
     let window = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Headless(window.clone()))).unwrap();
-    window.set_size(slint::PhysicalSize::new(w, h));
+    window.set_size(slint::PhysicalSize::new(1100, 720));
 
     let app = AppWindow::new().unwrap();
     backdrop::apply_preset(&app, "abstract", None);
@@ -36,27 +34,27 @@ fn main() {
     app.set_nickname("wwerz".into());
     app.set_client_ready(true);
     app.set_has_embedded_payload(true);
-    app.set_mods_repo_url("https://github.com/e04059631-lab/horizon-mods".into());
+    app.set_mods_repo_url("https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json".into());
     app.set_mods(ModelRc::new(VecModel::from(vec![
-        ModInfo { name: "ruby-arsenal.hmod".into(), file_name: "ruby-arsenal.hmod".into(), size_kb: 10, enabled: true, is_shader: false, is_resourcepack: false },
         ModInfo { name: "motion-blur.hshader".into(), file_name: "motion-blur.hshader".into(), size_kb: 2, enabled: true, is_shader: true, is_resourcepack: false },
+        ModInfo { name: "horizon-ultra.hshader".into(), file_name: "horizon-ultra.hshader".into(), size_kb: 3, enabled: true, is_shader: true, is_resourcepack: false },
         ModInfo { name: "low-fire.zip".into(), file_name: "low-fire.zip".into(), size_kb: 40, enabled: true, is_shader: false, is_resourcepack: true },
     ])));
     app.set_active_mods_count(3);
     app.set_total_mods_count(3);
     app.set_catalog_mods(ModelRc::new(VecModel::from(vec![
         CatalogModInfo {
-            id: "ruby-arsenal".into(),
-            name: "Ruby Arsenal".into(),
-            description: "Рубиновые мечи, кирки, боевые топоры, блок рубина и крафты — настоящий .hmod мод с 16×16 текстурами.".into(),
+            id: "motion-blur".into(),
+            name: "Motion Blur".into(),
+            description: "Плавное размытие в движении для Horizon 26.3 с адаптацией под 144 Гц и настройками силы и качества в игре.".into(),
             version: "1.0.0".into(),
-            file_name: "ruby-arsenal.hmod".into(),
-            size_kb: 10,
+            file_name: "motion-blur.hshader".into(),
+            size_kb: 2,
             installed: true,
             downloading: false,
             has_icon: false,
             icon: Image::default(),
-            is_shader: false,
+            is_shader: true,
             is_resourcepack: false,
         },
         CatalogModInfo {
@@ -101,37 +99,23 @@ fn main() {
             is_shader: true,
             is_resourcepack: false,
         },
-        CatalogModInfo {
-            id: "ninja-shurikens".into(),
-            name: "Ninja Shurikens".into(),
-            description: "Метательные сюрикены, кунаи и катана ниндзя — бросаются как снежки и наносят реальный урон.".into(),
-            version: "1.0.0".into(),
-            file_name: "ninja-shurikens.hmod".into(),
-            size_kb: 8,
-            installed: false,
-            downloading: false,
-            has_icon: false,
-            icon: Image::default(),
-            is_shader: false,
-            is_resourcepack: false,
-        },
     ])));
-    app.set_mods_dir_path("C:\\Users\\wwerz\\AppData\\Roaming\\horizon-offline-game\\horizon-mods".into());
     app.set_recent_nicknames(ModelRc::new(VecModel::from(vec![
         SharedString::from("wwerz"),
         SharedString::from("Steve"),
     ])));
     app.show().unwrap();
 
-    let shots: [(&str, i32, i32, bool, &str); 5] = [
-        ("v3_home_abstract", 0, 0, true, "abstract"),
-        ("v3_home_aurora", 0, 0, true, "aurora"),
-        ("v3_home_cherry", 0, 0, true, "cherry"),
-        ("v3_mods_abstract", 1, 0, true, "abstract"),
-        ("v3_settings_picker", 2, 0, true, "abstract"),
+    let shots: [(&str, u32, u32, i32, i32, bool, &str); 5] = [
+        ("v4_home_lunar", 1100, 720, 0, 0, true, "abstract"),
+        ("v4_home_aurora", 1100, 720, 0, 0, true, "aurora"),
+        ("v4_mods_full", 1100, 720, 1, 0, true, "abstract"),
+        ("v4_mods_narrow940", 940, 640, 1, 0, true, "abstract"),
+        ("v4_settings_full", 1100, 720, 2, 0, true, "abstract"),
     ];
 
-    for (name, tab, mods_view, dark, bg) in shots {
+    for (name, w, h, tab, mods_view, dark, bg) in shots {
+        window.set_size(slint::PhysicalSize::new(w, h));
         backdrop::apply_preset(&app, bg, None);
         app.set_backdrop_index(backdrop::preset_to_index(bg));
         app.set_dark_mode(dark);

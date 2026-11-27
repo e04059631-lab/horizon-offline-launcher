@@ -99,7 +99,7 @@ export component AppWindow inherits Window {
     in-out property <bool> catalog-loading: false;
     in-out property <string> catalog-error: "";
     in-out property <string> catalog-search: "";
-    in-out property <int> catalog-filter: 0;
+    in-out property <int> catalog-filter: 0; // 0 all, 1 shaders, 2 pvp packs
     in-out property <string> mods-repo-url: "";
     in-out property <[LogEntry]> log-lines: [];
 
@@ -183,10 +183,10 @@ export component AppWindow inherits Window {
         image-fit: cover;
     }
 
-    // Subtle atmospheric dim in Dark Mode (lighter on Home so artwork shines)
+    // Soft atmospheric scrim (gentle on Home so artwork breathes, deeper on tabs)
     Rectangle {
         background: root.active-tab == 0
-            ? (Theme.dark ? #070A1244 : #00000000)
+            ? (Theme.dark ? #070A124C : #070A122A)
             : Theme.wallpaper-dim;
         animate background {
             duration: 240ms;
@@ -194,26 +194,24 @@ export component AppWindow inherits Window {
         }
     }
 
-    // Soft bottom vignette for crisp hero text readability over the horizon
     Rectangle {
         background: root.active-tab == 0
-            ? @linear-gradient(180deg, #070A1228 0%, #00000000 28%, #070A121A 52%, #070A12CC 100%)
+            ? @linear-gradient(180deg, #070A1238 0%, #070A1214 35%, #070A1228 70%, #070A12A8 100%)
             : @linear-gradient(180deg, #00000014 0%, #00000000 32%, #00000000 70%, #00000028 100%);
     }
 
     // =====================================================================
-    // Minimal Shell
+    // Edge-to-Edge Full-Window Shell
     // =====================================================================
     VerticalLayout {
-        padding: 18px;
-        spacing: 14px;
+        padding: 14px;
+        spacing: 12px;
 
         // ---------------- Slim Floating Top Bar ----------------
         HorizontalLayout {
             height: 46px;
             spacing: 10px;
 
-            // Compact single-line Brand pill
             Glass {
                 horizontal-stretch: 0;
                 height: 46px;
@@ -245,7 +243,6 @@ export component AppWindow inherits Window {
 
             Rectangle { horizontal-stretch: 1; }
 
-            // Centered Spring-Draggable Tab Bar
             LiquidTabBar {
                 horizontal-stretch: 0;
                 active-tab <=> root.active-tab;
@@ -259,14 +256,12 @@ export component AppWindow inherits Window {
 
             Rectangle { horizontal-stretch: 1; }
 
-            // Theme Toggle
             ThemeToggleButton {
                 horizontal-stretch: 0;
                 dark: Theme.dark;
                 clicked => { root.apply-dark-mode(!root.dark-mode); }
             }
 
-            // Compact single-line Profile pill
             Glass {
                 horizontal-stretch: 0;
                 height: 46px;
@@ -316,14 +311,14 @@ export component AppWindow inherits Window {
             }
         }
 
-        // ---------------- Spring 144Hz Page Stage ----------------
+        // ---------------- Spring 144Hz Full-Window Stage ----------------
         stage := Rectangle {
             vertical-stretch: 1;
             clip: true;
             background: transparent;
 
             // =================================================================
-            // PAGE 0: HOME — Full-Bleed Artwork + Minimal Hero + Floating Dock
+            // PAGE 0: HOME — Lunar Client Centered Hero + Slim Bottom Status Bar
             // =================================================================
             Rectangle {
                 x: 0px;
@@ -339,31 +334,29 @@ export component AppWindow inherits Window {
                 }
 
                 VerticalLayout {
-                    padding-left: 8px;
-                    padding-right: 8px;
-                    padding-bottom: 4px;
-                    spacing: 14px;
+                    spacing: 12px;
 
-                    // Open breathing space — lets the sunrise artwork shine!
+                    // Top flexible spacer for true optical vertical centering
                     Rectangle { vertical-stretch: 1; }
 
-                    // Clean floating Hero Headline
+                    // ---- Centered Hero Focal Point ----
                     VerticalLayout {
-                        spacing: 8px;
-                        padding-left: 6px;
+                        alignment: center;
+                        spacing: 18px;
 
+                        // Eyebrow version & readiness pill
                         HorizontalLayout {
-                            spacing: 8px;
-                            alignment: start;
-
+                            alignment: center;
                             Rectangle {
-                                height: 28px;
-                                border-radius: 14px;
+                                height: 30px;
+                                border-radius: 15px;
                                 background: #0C0F189E;
+                                border-width: 1px;
+                                border-color: #FFFFFF1C;
                                 HorizontalLayout {
-                                    padding-left: 11px;
-                                    padding-right: 12px;
-                                    spacing: 7px;
+                                    padding-left: 13px;
+                                    padding-right: 14px;
+                                    spacing: 8px;
                                     alignment: center;
                                     VerticalLayout {
                                         alignment: center;
@@ -375,125 +368,76 @@ export component AppWindow inherits Window {
                                         }
                                     }
                                     Text {
-                                        text: root.is-playing ? "Игра запущена" : (root.client-ready ? "Готов к игре" : "Клиент не найден");
-                                        font-size: 12px;
+                                        text: root.is-playing
+                                            ? "Игра запущена · Minecraft 26.3"
+                                            : (root.client-ready ? "Готов к запуску · Minecraft 26.3" : "Клиент не найден");
+                                        font-size: 12.5px;
                                         font-weight: 600;
+                                        color: #FFFFFFEB;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Monumental Centered Brand Wordmark
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "HORIZON";
+                                font-size: 66px;
+                                font-weight: 700;
+                                letter-spacing: 6px;
+                                color: #FFFFFF;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: "Автономный оффлайн-клиент · Без лицензии";
+                                font-size: 14px;
+                                font-weight: 500;
+                                color: #FFFFFFB8;
+                                horizontal-alignment: center;
+                            }
+                        }
+
+                        // Iconic Centerpiece Play CTA (Lunar Client focal button)
+                        HorizontalLayout {
+                            alignment: center;
+                            padding-top: 6px;
+
+                            play-cta := Rectangle {
+                                width: 310px;
+                                height: 58px;
+                                border-radius: 29px;
+                                opacity: (root.is-playing || !root.is-unpacking) ? 1.0 : 0.45;
+                                background: root.is-playing
+                                    ? (play-ta.pressed ? #C8231AF2 : (play-ta.has-hover ? #FF574DF5 : #FF3B30F0))
+                                    : (play-ta.pressed ? #D64D0AF2 : (play-ta.has-hover ? #FF823CF5 : #FF6A1FF2));
+                                animate background { duration: 150ms; }
+
+                                HorizontalLayout {
+                                    alignment: center;
+                                    spacing: 10px;
+                                    padding-top: play-ta.pressed ? 1.5px : 0px;
+
+                                    Icon {
+                                        text: root.is-playing ? "\u{e047}" : "\u{e037}";
+                                        font-size: 26px;
+                                        color: #FFFFFF;
+                                    }
+                                    Text {
+                                        text: root.is-playing ? "ОСТАНОВИТЬ" : "ИГРАТЬ";
+                                        font-size: 17px;
+                                        font-weight: 700;
+                                        letter-spacing: 1.5px;
                                         color: #FFFFFF;
                                         vertical-alignment: center;
                                     }
                                 }
-                            }
 
-                            Rectangle {
-                                height: 28px;
-                                border-radius: 14px;
-                                background: #0C0F187A;
-                                HorizontalLayout {
-                                    padding-left: 12px;
-                                    padding-right: 12px;
-                                    Text {
-                                        text: "Minecraft Java 26.3 · Оффлайн";
-                                        font-size: 12px;
-                                        font-weight: 500;
-                                        color: #FFFFFFD6;
-                                        vertical-alignment: center;
-                                    }
-                                }
-                            }
-                        }
-
-                        Text {
-                            text: "Horizon";
-                            font-size: 56px;
-                            font-weight: 700;
-                            color: #FFFFFF;
-                        }
-
-                        Text {
-                            text: "\{root.ram-gb} ГБ ОЗУ  ·  \{root.render-distance} чанков  ·  "
-                                + (root.fullscreen ? "Полный экран" : "\{root.window-width}×\{root.window-height}")
-                                + (root.active-mods-count > 0 ? "  ·  Активно модов: \{root.active-mods-count}" : "");
-                            font-size: 13.5px;
-                            font-weight: 500;
-                            color: #FFFFFFCC;
-                        }
-                    }
-
-                    // Inline status toast (only when present)
-                    if root.has-status-message: Rectangle {
-                        border-radius: 16px;
-                        background: root.status-is-error ? #7A1412D8 : #115E28D8;
-                        HorizontalLayout {
-                            padding: 12px;
-                            spacing: 8px;
-                            Icon {
-                                text: root.status-is-error ? "\u{e000}" : "\u{e86c}";
-                                font-size: 18px;
-                                color: #FFFFFF;
-                            }
-                            Text {
-                                horizontal-stretch: 1;
-                                text: root.status-text;
-                                font-size: 13px;
-                                color: #FFFFFF;
-                                wrap: word-wrap;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-
-                    // Single Sleek Floating Liquid Glass Launch Dock
-                    Glass {
-                        height: 76px;
-                        radius: 26px;
-                        tint: Theme.glass-hero;
-
-                        HorizontalLayout {
-                            padding-left: 14px;
-                            padding-right: 14px;
-                            spacing: 10px;
-
-                            VerticalLayout {
-                                horizontal-stretch: 1;
-                                alignment: center;
-                                Field {
-                                    field-height: 48px;
-                                    icon: "\u{e875}";
-                                    text <=> root.server-address;
-                                    placeholder: "Адрес сервера (необязательно)";
-                                    edited => { root.save-settings(); }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                GlassButton {
-                                    btn-height: 48px;
-                                    icon: "\u{e2c8}";
-                                    text: "";
-                                    clicked => { root.open-game-folder(); }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                GlassButton {
-                                    btn-height: 48px;
-                                    icon: "\u{e86f}";
-                                    text: "";
-                                    clicked => { root.active-tab = 3; }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                GlassButton {
-                                    min-width: 210px;
-                                    btn-height: 48px;
-                                    kind: root.is-playing ? "danger" : "primary";
-                                    icon: root.is-playing ? "\u{e047}" : "\u{e037}";
-                                    text: root.is-playing ? "Остановить" : "Играть";
+                                play-ta := TouchArea {
                                     enabled: root.is-playing || !root.is-unpacking;
+                                    mouse-cursor: self.enabled ? pointer : default;
                                     clicked => {
                                         if root.is-playing {
                                             root.stop();
@@ -504,12 +448,181 @@ export component AppWindow inherits Window {
                                 }
                             }
                         }
+
+                        // Discreet Centered Optional Server Pill
+                        HorizontalLayout {
+                            alignment: center;
+                            Field {
+                                width: 360px;
+                                field-height: 42px;
+                                icon: "\u{e875}";
+                                text <=> root.server-address;
+                                placeholder: "Адрес сервера (необязательно)";
+                                accepted => { root.play(); }
+                                edited => { root.save-settings(); }
+                            }
+                        }
+
+                        // Conditional centered status banner
+                        if root.has-status-message: HorizontalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: Math.min(480px, stage.width - 32px);
+                                border-radius: 16px;
+                                background: root.status-is-error ? #7A1412DE : #115E28DE;
+                                HorizontalLayout {
+                                    padding: 11px;
+                                    spacing: 8px;
+                                    Icon {
+                                        text: root.status-is-error ? "\u{e000}" : "\u{e86c}";
+                                        font-size: 18px;
+                                        color: #FFFFFF;
+                                    }
+                                    Text {
+                                        horizontal-stretch: 1;
+                                        text: root.status-text;
+                                        font-size: 13px;
+                                        color: #FFFFFF;
+                                        wrap: word-wrap;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Bottom flexible spacer
+                    Rectangle { vertical-stretch: 1; }
+
+                    // ---- Slim Full-Width Floating Glass Status Strip ----
+                    Glass {
+                        width: 100%;
+                        height: 54px;
+                        radius: 22px;
+                        tint: Theme.glass-hero;
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            spacing: 8px;
+
+                            // Quick interactive status pills
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 36px;
+                                    border-radius: 18px;
+                                    background: st-prof.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
+                                    animate background { duration: 140ms; }
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 14px;
+                                        spacing: 7px;
+                                        Icon { text: "\u{e7fd}"; font-size: 16px; color: Theme.accent; }
+                                        Text {
+                                            text: root.nickname == "" ? "Указать ник" : root.nickname;
+                                            font-size: 12.5px;
+                                            font-weight: 600;
+                                            color: Theme.text-primary;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    st-prof := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.edit-nickname = root.nickname;
+                                            root.play-after-nickname = false;
+                                            root.show-account-dialog = true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 36px;
+                                    border-radius: 18px;
+                                    background: st-mods.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
+                                    animate background { duration: 140ms; }
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 14px;
+                                        spacing: 7px;
+                                        Icon { text: "\u{e87b}"; font-size: 16px; color: Theme.green; }
+                                        Text {
+                                            text: root.active-mods-count > 0 ? "Моды: \{root.active-mods-count}" : "Моды не выбраны";
+                                            font-size: 12.5px;
+                                            font-weight: 600;
+                                            color: Theme.text-primary;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    st-mods := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.active-tab = 1;
+                                            root.refresh-mods();
+                                        }
+                                    }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 36px;
+                                    border-radius: 18px;
+                                    background: st-cfg.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
+                                    animate background { duration: 140ms; }
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 14px;
+                                        spacing: 7px;
+                                        Icon { text: "\u{e322}"; font-size: 16px; color: Theme.blue; }
+                                        Text {
+                                            text: "\{root.ram-gb} ГБ · \{root.render-distance} чанков · " + (root.fullscreen ? "Полный экран" : "\{root.window-width}×\{root.window-height}");
+                                            font-size: 12.5px;
+                                            font-weight: 500;
+                                            color: Theme.text-secondary;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    st-cfg := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { root.active-tab = 2; }
+                                    }
+                                }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; }
+
+                            VerticalLayout {
+                                alignment: center;
+                                GlassButton {
+                                    btn-height: 36px;
+                                    icon: "\u{e2c8}";
+                                    text: "Папка";
+                                    clicked => { root.open-game-folder(); }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                GlassButton {
+                                    btn-height: 36px;
+                                    icon: "\u{e86f}";
+                                    text: "Логи";
+                                    clicked => { root.active-tab = 3; }
+                                }
+                            }
+                        }
                     }
                 }
             }
 
             // =================================================================
-            // PAGE 1: MODS — Single Unified Full-Width Workspace (Clean & Airy)
+            // PAGE 1: MODS — Full-Window 100% Width, 3 Clean Filters, Zero Clipping
             // =================================================================
             Rectangle {
                 x: 0px;
@@ -527,23 +640,23 @@ export component AppWindow inherits Window {
                 Glass {
                     width: 100%;
                     height: 100%;
-                    radius: 30px;
+                    radius: 28px;
 
                     VerticalLayout {
-                        padding: 22px;
-                        spacing: 14px;
+                        padding: 20px;
+                        spacing: 12px;
 
-                        // Single clean unified top bar
+                        // Responsive full-width top toolbar (zero overflow at any width!)
                         HorizontalLayout {
-                            height: 42px;
+                            height: 40px;
                             spacing: 10px;
 
                             VerticalLayout {
                                 alignment: center;
                                 LiquidSegmented2 {
-                                    width: 290px;
+                                    width: 244px;
                                     label0: "Каталог";
-                                    label1: "Мои моды (\{root.total-mods-count})";
+                                    label1: "Мои (\{root.total-mods-count})";
                                     selected <=> root.mods-view;
                                     changed(v) => {
                                         if v == 1 {
@@ -555,21 +668,24 @@ export component AppWindow inherits Window {
 
                             if root.mods-view == 0: VerticalLayout {
                                 horizontal-stretch: 1;
+                                preferred-width: 0px;
                                 alignment: center;
                                 Field {
+                                    preferred-width: 0px;
                                     field-height: 40px;
                                     icon: "\u{e8b6}";
                                     text <=> root.catalog-search;
-                                    placeholder: "Поиск модов, шейдеров, PvP-паков...";
+                                    placeholder: "Поиск шейдеров и PvP-паков...";
                                     edited => { root.search-catalog(root.catalog-search); }
                                 }
                             }
 
                             if root.mods-view == 1: HorizontalLayout {
                                 horizontal-stretch: 1;
+                                preferred-width: 0px;
                                 padding-left: 6px;
                                 Text {
-                                    text: "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hmod .hshader .zip";
+                                    text: "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hshader .zip";
                                     font-size: 13px;
                                     color: Theme.text-muted;
                                     vertical-alignment: center;
@@ -605,17 +721,17 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        // Catalog Category Filter Row (clean compact strip)
+                        // Catalog Category Filter Row (3 clean client-side categories)
                         if root.mods-view == 0: HorizontalLayout {
                             height: 38px;
                             spacing: 12px;
 
-                            LiquidSegmented4 {
-                                width: 410px;
+                            LiquidSegmented3 {
+                                width: 330px;
+                                stretch: true;
                                 label0: "Все";
-                                label1: "Моды";
-                                label2: "Шейдеры";
-                                label3: "PvP-паки";
+                                label1: "Шейдеры";
+                                label2: "PvP-паки";
                                 selected <=> root.catalog-filter;
                                 changed(idx) => { root.filter-catalog(idx); }
                             }
@@ -631,7 +747,7 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        // Error notice (Catalog)
+                        // Error notice
                         if root.mods-view == 0 && root.catalog-error != "": Rectangle {
                             border-radius: 16px;
                             background: #FF3B301E;
@@ -645,6 +761,7 @@ export component AppWindow inherits Window {
                                 }
                                 Text {
                                     horizontal-stretch: 1;
+                                    preferred-width: 0px;
                                     text: root.catalog-error;
                                     font-size: 12.5px;
                                     color: Theme.dark ? #FF8A80 : #B0000F;
@@ -657,7 +774,7 @@ export component AppWindow inherits Window {
                         // --- CATALOG VIEW ---
                         if root.mods-view == 0 && !root.catalog-loading && root.catalog-mods.length == 0: Rectangle {
                             vertical-stretch: 1;
-                            border-radius: 22px;
+                            border-radius: 20px;
                             background: Theme.inner-tile-disabled;
 
                             VerticalLayout {
@@ -705,17 +822,19 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.mods-view == 0 && root.catalog-mods.length > 0: ScrollView {
+                        if root.mods-view == 0 && root.catalog-mods.length > 0: cat-sv := ScrollView {
                             vertical-stretch: 1;
+                            content-width: cat-sv.visible-width;
 
                             VerticalLayout {
+                                width: cat-sv.visible-width;
                                 spacing: 8px;
                                 padding-top: 2px;
                                 padding-bottom: 10px;
-                                padding-right: 8px;
+                                padding-right: 6px;
 
                                 for cmod in root.catalog-mods: Rectangle {
-                                    height: Math.max(74px, card-content.preferred-height);
+                                    height: Math.max(72px, card-content.preferred-height);
                                     border-radius: 18px;
                                     background: card-ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
                                     clip: true;
@@ -726,11 +845,10 @@ export component AppWindow inherits Window {
                                     card-content := HorizontalLayout {
                                         padding-left: 14px;
                                         padding-right: 14px;
-                                        padding-top: 12px;
-                                        padding-bottom: 12px;
+                                        padding-top: 11px;
+                                        padding-bottom: 11px;
                                         spacing: 14px;
 
-                                        // Square Mod Icon
                                         VerticalLayout {
                                             alignment: center;
                                             Rectangle {
@@ -755,7 +873,6 @@ export component AppWindow inherits Window {
                                             }
                                         }
 
-                                        // Wide, airy Name + Description
                                         VerticalLayout {
                                             horizontal-stretch: 1;
                                             preferred-width: 0px;
@@ -803,11 +920,10 @@ export component AppWindow inherits Window {
                                             }
                                         }
 
-                                        // Quiet size indicator
                                         if cmod.size-kb > 0: VerticalLayout {
                                             alignment: center;
                                             Text {
-                                                min-width: 54px;
+                                                min-width: 48px;
                                                 text: "\{cmod.size-kb} КБ";
                                                 font-size: 12px;
                                                 color: Theme.text-muted;
@@ -815,11 +931,10 @@ export component AppWindow inherits Window {
                                             }
                                         }
 
-                                        // Uniform right-aligned Download button
                                         VerticalLayout {
                                             alignment: center;
                                             GlassButton {
-                                                min-width: 120px;
+                                                min-width: 118px;
                                                 btn-height: 36px;
                                                 kind: cmod.installed ? "secondary" : "primary";
                                                 icon: cmod.installed ? "\u{e86c}" : (cmod.downloading ? "\u{e86a}" : "\u{e2c4}");
@@ -836,7 +951,7 @@ export component AppWindow inherits Window {
                         // --- INSTALLED MODS VIEW ---
                         if root.mods-view == 1 && root.mods.length == 0: Rectangle {
                             vertical-stretch: 1;
-                            border-radius: 22px;
+                            border-radius: 20px;
                             background: Theme.inner-tile-disabled;
 
                             VerticalLayout {
@@ -857,7 +972,7 @@ export component AppWindow inherits Window {
                                     horizontal-alignment: center;
                                 }
                                 Text {
-                                    text: "Выбери нужные моды, шейдеры или PvP-паки в каталоге";
+                                    text: "Выбери нужные шейдеры и PvP-паки в каталоге";
                                     font-size: 12.5px;
                                     color: Theme.text-muted;
                                     horizontal-alignment: center;
@@ -875,14 +990,16 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.mods-view == 1 && root.mods.length > 0: ScrollView {
+                        if root.mods-view == 1 && root.mods.length > 0: my-sv := ScrollView {
                             vertical-stretch: 1;
+                            content-width: my-sv.visible-width;
 
                             VerticalLayout {
+                                width: my-sv.visible-width;
                                 spacing: 8px;
                                 padding-top: 2px;
                                 padding-bottom: 10px;
-                                padding-right: 8px;
+                                padding-right: 6px;
 
                                 for item in root.mods: Rectangle {
                                     height: 64px;
@@ -938,7 +1055,7 @@ export component AppWindow inherits Window {
                                                 animate color { duration: 160ms; }
                                             }
                                             Text {
-                                                text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "PvP-пак · " : "Мод .hmod · "))
+                                                text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "PvP-пак · " : "Мод · "))
                                                     + "\{item.size-kb} КБ · "
                                                     + (item.enabled ? "включён" : "выключен");
                                                 font-size: 12px;
@@ -984,7 +1101,7 @@ export component AppWindow inherits Window {
             }
 
             // =================================================================
-            // PAGE 2: SETTINGS — Centered Calm macOS-Style Sheet
+            // PAGE 2: SETTINGS — Full-Window 100% Clean Layout (Zero Side Gaps!)
             // =================================================================
             Rectangle {
                 x: 0px;
@@ -999,99 +1116,110 @@ export component AppWindow inherits Window {
                     easing: spring(0.14);
                 }
 
-                HorizontalLayout {
-                    Rectangle { horizontal-stretch: 1; }
+                Glass {
+                    width: 100%;
+                    height: 100%;
+                    radius: 28px;
 
-                    Glass {
-                        width: Math.min(760px, stage.width);
-                        height: 100%;
-                        radius: 30px;
+                    set-sv := ScrollView {
+                        content-width: set-sv.visible-width;
 
-                        ScrollView {
+                        VerticalLayout {
+                            width: set-sv.visible-width;
+                            alignment: start;
+                            padding: 24px;
+                            spacing: 18px;
+
+                            // Section 0: Full-width Wallpaper Picker
                             VerticalLayout {
-                                padding: 26px;
-                                spacing: 18px;
+                                spacing: 10px;
 
-                                // Section 0: Wallpaper & Appearance
-                                VerticalLayout {
+                                HorizontalLayout {
+                                    Text {
+                                        text: "Фон лаунчера";
+                                        font-size: 17px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        vertical-alignment: center;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    GlassButton {
+                                        btn-height: 34px;
+                                        icon: "\u{e43e}";
+                                        text: "Выбрать файл…";
+                                        clicked => { root.pick-custom-backdrop(); }
+                                    }
+                                }
+
+                                HorizontalLayout {
                                     spacing: 10px;
 
-                                    HorizontalLayout {
-                                        Text {
-                                            text: "Фон лаунчера";
-                                            font-size: 17px;
-                                            font-weight: 700;
-                                            color: Theme.text-primary;
-                                            vertical-alignment: center;
-                                        }
-                                        Rectangle { horizontal-stretch: 1; }
-                                        GlassButton {
-                                            btn-height: 32px;
-                                            icon: "\u{e43e}";
-                                            text: "Выбрать файл…";
-                                            clicked => { root.pick-custom-backdrop(); }
-                                        }
+                                    WallpaperTile {
+                                        horizontal-stretch: 1;
+                                        height: 82px;
+                                        label: "Стекло";
+                                        preview: @image-url("../assets/thumb-abstract.jpg");
+                                        selected: root.backdrop-index == 0;
+                                        clicked => { root.select-backdrop(0); }
                                     }
-
-                                    HorizontalLayout {
-                                        spacing: 8px;
-
-                                        WallpaperTile {
-                                            horizontal-stretch: 1;
-                                            label: "Стекло";
-                                            preview: @image-url("../assets/thumb-abstract.jpg");
-                                            selected: root.backdrop-index == 0;
-                                            clicked => { root.select-backdrop(0); }
-                                        }
-                                        WallpaperTile {
-                                            horizontal-stretch: 1;
-                                            label: "Сияние";
-                                            preview: @image-url("../assets/thumb-aurora.jpg");
-                                            selected: root.backdrop-index == 1;
-                                            clicked => { root.select-backdrop(1); }
-                                        }
-                                        WallpaperTile {
-                                            horizontal-stretch: 1;
-                                            label: "Сакура";
-                                            preview: @image-url("../assets/thumb-cherry.jpg");
-                                            selected: root.backdrop-index == 2;
-                                            clicked => { root.select-backdrop(2); }
-                                        }
-                                        WallpaperTile {
-                                            horizontal-stretch: 1;
-                                            label: "Закат";
-                                            preview: @image-url("../assets/thumb-sunset.jpg");
-                                            selected: root.backdrop-index == 3;
-                                            clicked => { root.select-backdrop(3); }
-                                        }
-                                        WallpaperTile {
-                                            horizontal-stretch: 1;
-                                            label: "Свой фон";
-                                            preview: Backdrop.custom-thumb;
-                                            has-preview: Backdrop.has-custom-thumb;
-                                            selected: root.backdrop-index == 4;
-                                            clicked => {
-                                                if Backdrop.has-custom-thumb && root.backdrop-index != 4 {
-                                                    root.select-backdrop(4);
-                                                } else {
-                                                    root.pick-custom-backdrop();
-                                                }
+                                    WallpaperTile {
+                                        horizontal-stretch: 1;
+                                        height: 82px;
+                                        label: "Сияние";
+                                        preview: @image-url("../assets/thumb-aurora.jpg");
+                                        selected: root.backdrop-index == 1;
+                                        clicked => { root.select-backdrop(1); }
+                                    }
+                                    WallpaperTile {
+                                        horizontal-stretch: 1;
+                                        height: 82px;
+                                        label: "Сакура";
+                                        preview: @image-url("../assets/thumb-cherry.jpg");
+                                        selected: root.backdrop-index == 2;
+                                        clicked => { root.select-backdrop(2); }
+                                    }
+                                    WallpaperTile {
+                                        horizontal-stretch: 1;
+                                        height: 82px;
+                                        label: "Закат";
+                                        preview: @image-url("../assets/thumb-sunset.jpg");
+                                        selected: root.backdrop-index == 3;
+                                        clicked => { root.select-backdrop(3); }
+                                    }
+                                    WallpaperTile {
+                                        horizontal-stretch: 1;
+                                        height: 82px;
+                                        label: "Свой фон";
+                                        preview: Backdrop.custom-thumb;
+                                        has-preview: Backdrop.has-custom-thumb;
+                                        selected: root.backdrop-index == 4;
+                                        clicked => {
+                                            if Backdrop.has-custom-thumb && root.backdrop-index != 4 {
+                                                root.select-backdrop(4);
+                                            } else {
+                                                root.pick-custom-backdrop();
                                             }
                                         }
                                     }
                                 }
+                            }
 
-                                // Soft divider
-                                Rectangle { height: 1px; background: Theme.fill; }
+                            Rectangle { height: 1px; background: Theme.fill; }
 
-                                // Section 1: Performance
+                            // Balanced full-width 2-column core settings
+                            HorizontalLayout {
+                                spacing: 26px;
+
+                                // Left: Performance
                                 VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    preferred-width: 0px;
                                     spacing: 12px;
 
                                     HorizontalLayout {
                                         Text {
                                             text: "Производительность";
-                                            font-size: 17px;
+                                            font-size: 16.5px;
                                             font-weight: 700;
                                             color: Theme.text-primary;
                                             vertical-alignment: center;
@@ -1134,17 +1262,16 @@ export component AppWindow inherits Window {
                                     }
                                 }
 
-                                // Soft divider
-                                Rectangle { height: 1px; background: Theme.fill; }
-
-                                // Section 2: Display & Gameplay
+                                // Right: Display & Gameplay
                                 VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    preferred-width: 0px;
                                     spacing: 10px;
 
                                     HorizontalLayout {
                                         Text {
                                             text: "Экран и игра";
-                                            font-size: 17px;
+                                            font-size: 16.5px;
                                             font-weight: 700;
                                             color: Theme.text-primary;
                                             vertical-alignment: center;
@@ -1190,100 +1317,98 @@ export component AppWindow inherits Window {
                                         toggled(_) => { root.save-settings(); }
                                     }
                                 }
+                            }
 
-                                // Soft divider
-                                Rectangle { height: 1px; background: Theme.fill; }
+                            Rectangle { height: 1px; background: Theme.fill; }
 
-                                // Section 3: Catalog & Files
-                                VerticalLayout {
+                            // Bottom Full-Width Catalog & Files Row
+                            VerticalLayout {
+                                spacing: 10px;
+
+                                Text {
+                                    text: "Каталог и файлы";
+                                    font-size: 16.5px;
+                                    font-weight: 700;
+                                    color: Theme.text-primary;
+                                }
+
+                                HorizontalLayout {
                                     spacing: 10px;
-
-                                    Text {
-                                        text: "Каталог и файлы";
-                                        font-size: 17px;
-                                        font-weight: 700;
-                                        color: Theme.text-primary;
+                                    Field {
+                                        horizontal-stretch: 1;
+                                        preferred-width: 0px;
+                                        field-height: 42px;
+                                        icon: "\u{e80b}";
+                                        text <=> root.mods-repo-url;
+                                        placeholder: "https://github.com/user/horizon-mods";
+                                        accepted => {
+                                            root.save-settings();
+                                            root.refresh-catalog();
+                                        }
+                                        edited => { root.save-settings(); }
                                     }
-
-                                    HorizontalLayout {
-                                        spacing: 8px;
-                                        Field {
-                                            horizontal-stretch: 1;
-                                            field-height: 42px;
-                                            icon: "\u{e80b}";
-                                            text <=> root.mods-repo-url;
-                                            placeholder: "https://github.com/user/horizon-mods";
-                                            accepted => {
+                                    VerticalLayout {
+                                        alignment: center;
+                                        GlassButton {
+                                            btn-height: 42px;
+                                            kind: "primary";
+                                            icon: "\u{e5d5}";
+                                            text: "Обновить";
+                                            clicked => {
                                                 root.save-settings();
                                                 root.refresh-catalog();
                                             }
-                                            edited => { root.save-settings(); }
-                                        }
-                                        VerticalLayout {
-                                            alignment: center;
-                                            GlassButton {
-                                                btn-height: 42px;
-                                                kind: "primary";
-                                                icon: "\u{e5d5}";
-                                                text: "Обновить";
-                                                clicked => {
-                                                    root.save-settings();
-                                                    root.refresh-catalog();
-                                                }
-                                            }
                                         }
                                     }
+                                }
 
-                                    HorizontalLayout {
-                                        spacing: 8px;
-                                        GlassButton {
-                                            horizontal-stretch: 1;
-                                            btn-height: 38px;
-                                            icon: "\u{e2c8}";
-                                            text: "Игра";
-                                            clicked => { root.open-game-folder(); }
-                                        }
-                                        GlassButton {
-                                            horizontal-stretch: 1;
-                                            btn-height: 38px;
-                                            icon: "\u{e87b}";
-                                            text: "Моды";
-                                            clicked => { root.open-mods-folder(); }
-                                        }
-                                        GlassButton {
-                                            horizontal-stretch: 1;
-                                            btn-height: 38px;
-                                            icon: "\u{e80b}";
-                                            text: "Миры";
-                                            clicked => { root.open-saves-folder(); }
-                                        }
-                                        GlassButton {
-                                            horizontal-stretch: 1;
-                                            btn-height: 38px;
-                                            icon: "\u{e412}";
-                                            text: "Скрины";
-                                            clicked => { root.open-screenshots-folder(); }
-                                        }
-                                        if root.has-embedded-payload: GlassButton {
-                                            horizontal-stretch: 1;
-                                            btn-height: 38px;
-                                            icon: "\u{e869}";
-                                            text: "Починить";
-                                            enabled: !root.is-playing && !root.is-unpacking;
-                                            clicked => { root.repair-client(); }
-                                        }
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    GlassButton {
+                                        horizontal-stretch: 1;
+                                        btn-height: 38px;
+                                        icon: "\u{e2c8}";
+                                        text: "Папка игры";
+                                        clicked => { root.open-game-folder(); }
+                                    }
+                                    GlassButton {
+                                        horizontal-stretch: 1;
+                                        btn-height: 38px;
+                                        icon: "\u{e87b}";
+                                        text: "Моды";
+                                        clicked => { root.open-mods-folder(); }
+                                    }
+                                    GlassButton {
+                                        horizontal-stretch: 1;
+                                        btn-height: 38px;
+                                        icon: "\u{e80b}";
+                                        text: "Миры";
+                                        clicked => { root.open-saves-folder(); }
+                                    }
+                                    GlassButton {
+                                        horizontal-stretch: 1;
+                                        btn-height: 38px;
+                                        icon: "\u{e412}";
+                                        text: "Скриншоты";
+                                        clicked => { root.open-screenshots-folder(); }
+                                    }
+                                    if root.has-embedded-payload: GlassButton {
+                                        horizontal-stretch: 1;
+                                        btn-height: 38px;
+                                        icon: "\u{e869}";
+                                        text: "Восстановить";
+                                        enabled: !root.is-playing && !root.is-unpacking;
+                                        clicked => { root.repair-client(); }
                                     }
                                 }
                             }
                         }
                     }
-
-                    Rectangle { horizontal-stretch: 1; }
                 }
             }
 
             // =================================================================
-            // PAGE 3: CONSOLE — Minimalist Log Viewer
+            // PAGE 3: CONSOLE — Full-Window Log Viewer
             // =================================================================
             Rectangle {
                 x: 0px;
@@ -1301,11 +1426,11 @@ export component AppWindow inherits Window {
                 Glass {
                     width: 100%;
                     height: 100%;
-                    radius: 30px;
+                    radius: 28px;
 
                     VerticalLayout {
-                        padding: 22px;
-                        spacing: 14px;
+                        padding: 20px;
+                        spacing: 12px;
 
                         HorizontalLayout {
                             height: 40px;
@@ -1366,8 +1491,10 @@ export component AppWindow inherits Window {
                                 }
                             }
 
-                            if root.log-lines.length > 0: ScrollView {
+                            if root.log-lines.length > 0: log-sv := ScrollView {
+                                content-width: log-sv.visible-width;
                                 VerticalLayout {
+                                    width: log-sv.visible-width;
                                     padding: 16px;
                                     alignment: start;
 

@@ -23,7 +23,7 @@ struct CatalogState {
     downloading_ids: HashSet<String>,
     icons: HashMap<String, (u32, u32, Vec<u8>)>,
     query: String,
-    filter: i32, // 0 = all, 1 = .hmod mods, 2 = shaders, 3 = resourcepacks/pvp
+    filter: i32, // 0 = all, 1 = shaders, 2 = resourcepacks/pvp
 }
 
 pub fn setup_ui_bridge(window: &AppWindow) {
@@ -789,9 +789,8 @@ fn rebuild_catalog_ui(
         .filter(|m| {
             let (is_shader, is_rp) = mod_kind_flags(&m.kind, &m.file_name);
             let cat_ok = match state.filter {
-                1 => !is_shader && !is_rp,
-                2 => is_shader,
-                3 => is_rp,
+                1 => is_shader,
+                2 => is_rp,
                 _ => true,
             };
             let search_ok = q.is_empty()
