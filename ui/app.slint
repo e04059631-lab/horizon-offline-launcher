@@ -183,10 +183,10 @@ export component AppWindow inherits Window {
         image-fit: cover;
     }
 
-    // Soft atmospheric scrim (gentle on Home so artwork breathes, deeper on tabs)
+    // Soft atmospheric scrim (pure clean Minecraft art on Home, frosted dark dim on content tabs)
     Rectangle {
         background: root.active-tab == 0
-            ? (Theme.dark ? #070A124C : #070A122A)
+            ? (Theme.dark ? #070A1228 : #00000000)
             : Theme.wallpaper-dim;
         animate background {
             duration: 240ms;
@@ -196,7 +196,7 @@ export component AppWindow inherits Window {
 
     Rectangle {
         background: root.active-tab == 0
-            ? @linear-gradient(180deg, #070A1238 0%, #070A1214 35%, #070A1228 70%, #070A12A8 100%)
+            ? @linear-gradient(180deg, #070A1230 0%, #00000000 22%, #00000000 66%, #070A1288 100%)
             : @linear-gradient(180deg, #00000014 0%, #00000000 32%, #00000000 70%, #00000028 100%);
     }
 
@@ -217,10 +217,26 @@ export component AppWindow inherits Window {
                 height: 46px;
                 radius: 23px;
                 HorizontalLayout {
-                    padding-left: 16px;
+                    padding-left: 10px;
                     padding-right: 16px;
-                    spacing: 7px;
+                    spacing: 9px;
                     alignment: center;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 26px;
+                            height: 26px;
+                            border-radius: 7px;
+                            clip: true;
+                            Image {
+                                width: 100%;
+                                height: 100%;
+                                source: @image-url("../assets/icon-256.png");
+                                image-fit: cover;
+                            }
+                        }
+                    }
 
                     Text {
                         text: "Horizon";
@@ -319,7 +335,8 @@ export component AppWindow inherits Window {
             background: transparent;
 
             // =================================================================
-            // PAGE 0: HOME — Lunar Client Centered Hero + Slim Bottom Status Bar
+            // PAGE 0: HOME — Authentic Native Minecraft Desktop Launcher Layout
+            // Full-bleed in-game Minecraft showcase + Grounded Launch Bar
             // =================================================================
             Rectangle {
                 x: 0px;
@@ -335,286 +352,261 @@ export component AppWindow inherits Window {
                 }
 
                 VerticalLayout {
-                    spacing: 12px;
+                    spacing: 10px;
 
-                    // Top flexible spacer for true optical vertical centering
+                    // Pure unobstructed Minecraft world art
                     Rectangle { vertical-stretch: 1; }
 
-                    // ---- Centered Hero Focal Point ----
-                    VerticalLayout {
-                        alignment: center;
-                        spacing: 18px;
-
-                        // Eyebrow version & readiness pill
+                    // Conditional inline error / status notification
+                    if root.has-status-message: Rectangle {
+                        border-radius: 12px;
+                        background: root.status-is-error ? #7A1412E0 : #115E28E0;
                         HorizontalLayout {
-                            alignment: center;
-                            Rectangle {
-                                height: 30px;
-                                border-radius: 15px;
-                                background: #0C0F189E;
-                                border-width: 1px;
-                                border-color: #FFFFFF1C;
-                                HorizontalLayout {
-                                    padding-left: 13px;
-                                    padding-right: 14px;
-                                    spacing: 8px;
-                                    alignment: center;
-                                    VerticalLayout {
-                                        alignment: center;
-                                        Rectangle {
-                                            width: 8px;
-                                            height: 8px;
-                                            border-radius: 4px;
-                                            background: root.is-playing ? #409CFF : (root.client-ready ? #32D74B : #FF9F0A);
-                                        }
-                                    }
-                                    Text {
-                                        text: root.is-playing
-                                            ? "Игра запущена · Minecraft 26.3"
-                                            : (root.client-ready ? "Готов к запуску · Minecraft 26.3" : "Клиент не найден");
-                                        font-size: 12.5px;
-                                        font-weight: 600;
-                                        color: #FFFFFFEB;
-                                        vertical-alignment: center;
-                                    }
-                                }
-                            }
-                        }
-
-                        // Monumental Centered Brand Wordmark
-                        VerticalLayout {
-                            spacing: 4px;
-                            Text {
-                                text: "HORIZON";
-                                font-size: 66px;
-                                font-weight: 700;
-                                letter-spacing: 6px;
+                            padding: 11px;
+                            spacing: 8px;
+                            Icon {
+                                text: root.status-is-error ? "\u{e000}" : "\u{e86c}";
+                                font-size: 18px;
                                 color: #FFFFFF;
-                                horizontal-alignment: center;
                             }
                             Text {
-                                text: "Автономный оффлайн-клиент · Без лицензии";
-                                font-size: 14px;
-                                font-weight: 500;
-                                color: #FFFFFFB8;
-                                horizontal-alignment: center;
-                            }
-                        }
-
-                        // Iconic Centerpiece Play CTA (Lunar Client focal button)
-                        HorizontalLayout {
-                            alignment: center;
-                            padding-top: 6px;
-
-                            play-cta := Rectangle {
-                                width: 310px;
-                                height: 58px;
-                                border-radius: 29px;
-                                opacity: (root.is-playing || !root.is-unpacking) ? 1.0 : 0.45;
-                                background: root.is-playing
-                                    ? (play-ta.pressed ? #C8231AF2 : (play-ta.has-hover ? #FF574DF5 : #FF3B30F0))
-                                    : (play-ta.pressed ? Theme.accent-pressed : (play-ta.has-hover ? Theme.accent-hover : Theme.accent));
-                                animate background { duration: 160ms; }
-
-                                HorizontalLayout {
-                                    alignment: center;
-                                    spacing: 10px;
-                                    padding-top: play-ta.pressed ? 1.5px : 0px;
-
-                                    Icon {
-                                        text: root.is-playing ? "\u{e047}" : "\u{e037}";
-                                        font-size: 26px;
-                                        color: #FFFFFF;
-                                    }
-                                    Text {
-                                        text: root.is-playing ? "ОСТАНОВИТЬ" : "ИГРАТЬ";
-                                        font-size: 17px;
-                                        font-weight: 700;
-                                        letter-spacing: 1.5px;
-                                        color: #FFFFFF;
-                                        vertical-alignment: center;
-                                    }
-                                }
-
-                                play-ta := TouchArea {
-                                    enabled: root.is-playing || !root.is-unpacking;
-                                    mouse-cursor: self.enabled ? pointer : default;
-                                    clicked => {
-                                        if root.is-playing {
-                                            root.stop();
-                                        } else {
-                                            root.play();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Discreet Centered Optional Server Pill
-                        HorizontalLayout {
-                            alignment: center;
-                            Field {
-                                width: 360px;
-                                field-height: 42px;
-                                icon: "\u{e875}";
-                                text <=> root.server-address;
-                                placeholder: "Адрес сервера (необязательно)";
-                                accepted => { root.play(); }
-                                edited => { root.save-settings(); }
-                            }
-                        }
-
-                        // Conditional centered status banner
-                        if root.has-status-message: HorizontalLayout {
-                            alignment: center;
-                            Rectangle {
-                                width: Math.min(480px, stage.width - 32px);
-                                border-radius: 16px;
-                                background: root.status-is-error ? #7A1412DE : #115E28DE;
-                                HorizontalLayout {
-                                    padding: 11px;
-                                    spacing: 8px;
-                                    Icon {
-                                        text: root.status-is-error ? "\u{e000}" : "\u{e86c}";
-                                        font-size: 18px;
-                                        color: #FFFFFF;
-                                    }
-                                    Text {
-                                        horizontal-stretch: 1;
-                                        text: root.status-text;
-                                        font-size: 13px;
-                                        color: #FFFFFF;
-                                        wrap: word-wrap;
-                                        vertical-alignment: center;
-                                    }
-                                }
+                                horizontal-stretch: 1;
+                                text: root.status-text;
+                                font-size: 13px;
+                                color: #FFFFFF;
+                                wrap: word-wrap;
+                                vertical-alignment: center;
                             }
                         }
                     }
 
-                    // Bottom flexible spacer
-                    Rectangle { vertical-stretch: 1; }
-
-                    // ---- Slim Full-Width Floating Glass Status Strip ----
+                    // Grounded Desktop Game Launch Bar (Official Minecraft / Steam / Modrinth style)
                     Glass {
                         width: 100%;
-                        height: 54px;
-                        radius: 22px;
-                        tint: Theme.glass-hero;
+                        height: 82px;
+                        radius: 16px;
+                        tint: Theme.glass-thick;
 
                         HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            spacing: 8px;
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 14px;
 
-                            // Quick interactive status pills
-                            VerticalLayout {
-                                alignment: center;
-                                Rectangle {
-                                    height: 36px;
-                                    border-radius: 18px;
-                                    background: st-prof.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
-                                    animate background { duration: 140ms; }
+                            // Left: Game Edition + Profile Summary (clickable -> Settings)
+                            HorizontalLayout {
+                                spacing: 12px;
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 46px;
+                                        height: 46px;
+                                        border-radius: 10px;
+                                        clip: true;
+                                        Image {
+                                            width: 100%;
+                                            height: 100%;
+                                            source: @image-url("../assets/icon-256.png");
+                                            image-fit: cover;
+                                        }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 3px;
+
                                     HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 14px;
                                         spacing: 7px;
-                                        Icon { text: "\u{e7fd}"; font-size: 16px; color: Theme.accent; }
+                                        alignment: start;
                                         Text {
-                                            text: root.nickname == "" ? "Указать ник" : root.nickname;
-                                            font-size: 12.5px;
-                                            font-weight: 600;
+                                            text: "Minecraft 26.3";
+                                            font-size: 15.5px;
+                                            font-weight: 700;
                                             color: Theme.text-primary;
                                             vertical-alignment: center;
                                         }
-                                    }
-                                    st-prof := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => {
-                                            root.edit-nickname = root.nickname;
-                                            root.play-after-nickname = false;
-                                            root.show-account-dialog = true;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                height: 20px;
+                                                border-radius: 6px;
+                                                background: Theme.badge-pill-bg;
+                                                HorizontalLayout {
+                                                    padding-left: 7px;
+                                                    padding-right: 7px;
+                                                    spacing: 5px;
+                                                    VerticalLayout {
+                                                        alignment: center;
+                                                        Rectangle {
+                                                            width: 6px;
+                                                            height: 6px;
+                                                            border-radius: 3px;
+                                                            background: root.is-playing ? Theme.blue : (root.client-ready ? Theme.green : Theme.amber);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.is-playing ? "В игре" : "Horizon";
+                                                        font-size: 10.5px;
+                                                        font-weight: 600;
+                                                        color: Theme.text-secondary;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
                                         }
+                                    }
+
+                                    Text {
+                                        text: "\{root.ram-gb} ГБ ОЗУ · \{root.render-distance} чанков · "
+                                            + (root.active-mods-count > 0 ? "Модов: \{root.active-mods-count}" : "Без модов");
+                                        font-size: 12px;
+                                        color: Theme.text-muted;
                                     }
                                 }
                             }
 
+                            // Vertical hairline divider
                             VerticalLayout {
                                 alignment: center;
                                 Rectangle {
+                                    width: 1px;
                                     height: 36px;
-                                    border-radius: 18px;
-                                    background: st-mods.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
-                                    animate background { duration: 140ms; }
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 14px;
-                                        spacing: 7px;
-                                        Icon { text: "\u{e87b}"; font-size: 16px; color: Theme.green; }
-                                        Text {
-                                            text: root.active-mods-count > 0 ? "Моды: \{root.active-mods-count}" : "Моды не выбраны";
-                                            font-size: 12.5px;
-                                            font-weight: 600;
-                                            color: Theme.text-primary;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                    st-mods := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => {
-                                            root.active-tab = 1;
-                                            root.refresh-mods();
-                                        }
-                                    }
+                                    background: Theme.fill;
                                 }
                             }
 
+                            // Compact Optional Server Address input (crisp rounded rectangle, not bubbly pill)
                             VerticalLayout {
+                                horizontal-stretch: 1;
+                                preferred-width: 0px;
                                 alignment: center;
+
                                 Rectangle {
-                                    height: 36px;
-                                    border-radius: 18px;
-                                    background: st-cfg.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
-                                    animate background { duration: 140ms; }
+                                    height: 44px;
+                                    border-radius: 11px;
+                                    background: srv-in.has-focus ? Theme.field-bg-focus : Theme.field-bg;
+                                    border-width: srv-in.has-focus ? 1.5px : 1px;
+                                    border-color: srv-in.has-focus ? Theme.accent : Theme.field-border;
+                                    animate background, border-color { duration: 150ms; }
+
                                     HorizontalLayout {
                                         padding-left: 12px;
-                                        padding-right: 14px;
-                                        spacing: 7px;
-                                        Icon { text: "\u{e322}"; font-size: 16px; color: Theme.blue; }
+                                        padding-right: 12px;
+                                        spacing: 8px;
+
+                                        Icon {
+                                            text: "\u{e875}";
+                                            font-size: 18px;
+                                            color: srv-in.has-focus ? Theme.accent : Theme.text-muted;
+                                        }
+
+                                        Rectangle {
+                                            horizontal-stretch: 1;
+                                            if root.server-address == "": Text {
+                                                width: 100%;
+                                                height: 100%;
+                                                text: "IP сервера (необязательно)";
+                                                font-size: 13px;
+                                                color: Theme.text-muted;
+                                                horizontal-alignment: left;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                            }
+                                            srv-in := TextInput {
+                                                width: 100%;
+                                                height: 100%;
+                                                text <=> root.server-address;
+                                                font-size: 13px;
+                                                color: Theme.text-primary;
+                                                selection-background-color: Theme.accent-selection;
+                                                vertical-alignment: center;
+                                                single-line: true;
+                                                accepted => { root.play(); }
+                                                edited => { root.save-settings(); }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Quiet compact utility buttons (crisp 11px desktop radius)
+                            VerticalLayout {
+                                alignment: center;
+                                HorizontalLayout {
+                                    spacing: 8px;
+
+                                    Rectangle {
+                                        width: 44px;
+                                        height: 44px;
+                                        border-radius: 11px;
+                                        background: fld-ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
+                                        animate background { duration: 140ms; }
+                                        Icon { text: "\u{e2c8}"; font-size: 20px; color: Theme.text-primary; }
+                                        fld-ta := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.open-game-folder(); }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 44px;
+                                        height: 44px;
+                                        border-radius: 11px;
+                                        background: log-ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
+                                        animate background { duration: 140ms; }
+                                        Icon { text: "\u{e86f}"; font-size: 20px; color: Theme.text-primary; }
+                                        log-ta := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.active-tab = 3; }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Grounded Authentic Game Launch Button (crisp 12px desktop radius)
+                            VerticalLayout {
+                                alignment: center;
+                                play-cta := Rectangle {
+                                    width: 196px;
+                                    height: 48px;
+                                    border-radius: 12px;
+                                    opacity: (root.is-playing || !root.is-unpacking) ? 1.0 : 0.45;
+                                    background: root.is-playing
+                                        ? (play-ta.pressed ? #C8231AF2 : (play-ta.has-hover ? #FF574DF5 : #FF3B30F0))
+                                        : (play-ta.pressed ? Theme.accent-pressed : (play-ta.has-hover ? Theme.accent-hover : Theme.accent));
+                                    animate background { duration: 150ms; }
+
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        spacing: 8px;
+                                        padding-top: play-ta.pressed ? 1px : 0px;
+
+                                        Icon {
+                                            text: root.is-playing ? "\u{e047}" : "\u{e037}";
+                                            font-size: 22px;
+                                            color: #FFFFFF;
+                                        }
                                         Text {
-                                            text: "\{root.ram-gb} ГБ · \{root.render-distance} чанков · " + (root.fullscreen ? "Полный экран" : "\{root.window-width}×\{root.window-height}");
-                                            font-size: 12.5px;
-                                            font-weight: 500;
-                                            color: Theme.text-secondary;
+                                            text: root.is-playing ? "Остановить" : "Играть";
+                                            font-size: 16px;
+                                            font-weight: 700;
+                                            color: #FFFFFF;
                                             vertical-alignment: center;
                                         }
                                     }
-                                    st-cfg := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.active-tab = 2; }
+
+                                    play-ta := TouchArea {
+                                        enabled: root.is-playing || !root.is-unpacking;
+                                        mouse-cursor: self.enabled ? pointer : default;
+                                        clicked => {
+                                            if root.is-playing {
+                                                root.stop();
+                                            } else {
+                                                root.play();
+                                            }
+                                        }
                                     }
-                                }
-                            }
-
-                            Rectangle { horizontal-stretch: 1; }
-
-                            VerticalLayout {
-                                alignment: center;
-                                GlassButton {
-                                    btn-height: 36px;
-                                    icon: "\u{e2c8}";
-                                    text: "Папка";
-                                    clicked => { root.open-game-folder(); }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                GlassButton {
-                                    btn-height: 36px;
-                                    icon: "\u{e86f}";
-                                    text: "Логи";
-                                    clicked => { root.active-tab = 3; }
                                 }
                             }
                         }
@@ -1158,7 +1150,7 @@ export component AppWindow inherits Window {
                                     WallpaperTile {
                                         horizontal-stretch: 1;
                                         height: 82px;
-                                        label: "Синий час";
+                                        label: "Ночь";
                                         preview: @image-url("../assets/thumb-blue.jpg");
                                         selected: root.backdrop-index == 0;
                                         clicked => { root.select-backdrop(0); }
@@ -1166,7 +1158,7 @@ export component AppWindow inherits Window {
                                     WallpaperTile {
                                         horizontal-stretch: 1;
                                         height: 82px;
-                                        label: "Сияние";
+                                        label: "Долина";
                                         preview: @image-url("../assets/thumb-aurora.jpg");
                                         selected: root.backdrop-index == 1;
                                         clicked => { root.select-backdrop(1); }
@@ -1174,7 +1166,7 @@ export component AppWindow inherits Window {
                                     WallpaperTile {
                                         horizontal-stretch: 1;
                                         height: 82px;
-                                        label: "Персеиды";
+                                        label: "Пещеры";
                                         preview: @image-url("../assets/thumb-dusk.jpg");
                                         selected: root.backdrop-index == 2;
                                         clicked => { root.select-backdrop(2); }
@@ -1182,7 +1174,7 @@ export component AppWindow inherits Window {
                                     WallpaperTile {
                                         horizontal-stretch: 1;
                                         height: 82px;
-                                        label: "Закат";
+                                        label: "Рассвет";
                                         preview: @image-url("../assets/thumb-sunset.jpg");
                                         selected: root.backdrop-index == 3;
                                         clicked => { root.select-backdrop(3); }

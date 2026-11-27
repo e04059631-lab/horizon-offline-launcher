@@ -411,14 +411,14 @@ mod tests {
             if preset == "blue" {
                 assert!(
                     pal.accent.blue() > pal.accent.red() + 40,
-                    "blue wallpaper should extract a blue accent, got {:?}",
+                    "blue Minecraft night wallpaper should extract a blue accent, got {:?}",
                     pal.accent
                 );
             }
-            if preset == "aurora" {
+            if preset == "sunset" {
                 assert!(
-                    pal.accent.green() > pal.accent.red() + 20,
-                    "aurora wallpaper should extract a green/teal accent, got {:?}",
+                    pal.accent.red() > pal.accent.blue() + 30,
+                    "warm Minecraft sunrise wallpaper should extract a warm accent, got {:?}",
                     pal.accent
                 );
             }

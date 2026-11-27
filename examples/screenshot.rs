@@ -107,12 +107,12 @@ fn main() {
     app.show().unwrap();
 
     let shots: [(&str, u32, u32, i32, i32, bool, &str); 6] = [
-        ("v5_home_blue", 1100, 720, 0, 0, true, "blue"),
-        ("v5_home_aurora", 1100, 720, 0, 0, true, "aurora"),
-        ("v5_home_dusk", 1100, 720, 0, 0, true, "dusk"),
-        ("v5_home_sunset", 1100, 720, 0, 0, true, "sunset"),
-        ("v5_mods_blue", 1100, 720, 1, 0, true, "blue"),
-        ("v5_settings_blue", 1100, 720, 2, 0, true, "blue"),
+        ("v6_mc_home_night", 1100, 720, 0, 0, true, "blue"),
+        ("v6_mc_home_valley", 1100, 720, 0, 0, true, "aurora"),
+        ("v6_mc_home_caves", 1100, 720, 0, 0, true, "dusk"),
+        ("v6_mc_home_dawn", 1100, 720, 0, 0, true, "sunset"),
+        ("v6_mc_mods_night", 1100, 720, 1, 0, true, "blue"),
+        ("v6_mc_settings_night", 1100, 720, 2, 0, true, "blue"),
     ];
 
     for (name, w, h, tab, mods_view, dark, bg) in shots {
