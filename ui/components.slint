@@ -537,6 +537,120 @@ export component LiquidSegmented4 inherits Rectangle {
     }
 }
 
+// Smooth spring-draggable 2-option segmented control
+export component LiquidSegmented2 inherits Rectangle {
+    in property <string> label0;
+    in property <string> label1;
+    in-out property <int> selected: 0;
+    callback changed(int);
+
+    property <bool> dragging: false;
+    property <length> drag-pointer-x: 0px;
+
+    function seg-at(mx: length) -> int {
+        if mx < g1.x { return 0; }
+        return 1;
+    }
+
+    function seg-x(idx: int) -> length {
+        if idx == 0 { return g0.x; }
+        return g1.x;
+    }
+
+    function seg-w(idx: int) -> length {
+        if idx == 0 { return g0.width; }
+        return g1.width;
+    }
+
+    property <int> visual-idx: root.dragging ? root.seg-at(root.drag-pointer-x) : root.selected;
+    property <length> cur-w: root.seg-w(root.visual-idx);
+    property <length> max-x: Math.max(g0.x, g1.x + g1.width - root.cur-w);
+    property <length> droplet-x: root.dragging
+        ? Math.clamp(root.drag-pointer-x - root.cur-w / 2, g0.x, root.max-x)
+        : root.seg-x(root.selected);
+
+    height: 40px;
+    border-radius: 20px;
+    background: Theme.fill;
+    animate background { duration: 200ms; }
+
+    Rectangle {
+        x: root.droplet-x;
+        y: root.dragging ? 2px : 3px;
+        width: root.cur-w;
+        height: root.dragging ? 36px : 34px;
+        border-radius: self.height / 2;
+        background: root.dragging ? Theme.droplet-drag-bg : Theme.droplet-bg;
+
+        animate x {
+            duration: root.dragging ? 85ms : 300ms;
+            easing: spring(0.15);
+        }
+        animate width {
+            duration: 240ms;
+            easing: spring(0.10);
+        }
+        animate y, height { duration: 180ms; easing: spring(0.12); }
+        animate background { duration: 140ms; }
+    }
+
+    HorizontalLayout {
+        padding: 3px;
+        spacing: 2px;
+
+        g0 := Rectangle {
+            horizontal-stretch: 1;
+            height: 34px;
+            Text {
+                text: root.label0;
+                font-size: 13px;
+                font-weight: 600;
+                color: root.visual-idx == 0 ? Theme.text-primary : Theme.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                animate color { duration: 140ms; }
+            }
+        }
+        g1 := Rectangle {
+            horizontal-stretch: 1;
+            height: 34px;
+            Text {
+                text: root.label1;
+                font-size: 13px;
+                font-weight: 600;
+                color: root.visual-idx == 1 ? Theme.text-primary : Theme.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                animate color { duration: 140ms; }
+            }
+        }
+    }
+
+    TouchArea {
+        mouse-cursor: root.dragging ? grabbing : pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.drag-pointer-x = self.mouse-x;
+                root.dragging = true;
+            } else if event.kind == PointerEventKind.up {
+                let target = root.seg-at(self.mouse-x);
+                root.dragging = false;
+                if target != root.selected {
+                    root.selected = target;
+                    root.changed(target);
+                }
+            } else if event.kind == PointerEventKind.cancel {
+                root.dragging = false;
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.drag-pointer-x = self.mouse-x;
+            }
+        }
+    }
+}
+
 // Smooth spring-draggable 3-option segmented control
 export component LiquidSegmented3 inherits Rectangle {
     in property <string> label0;

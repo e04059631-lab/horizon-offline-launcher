@@ -3,6 +3,7 @@
 mod backdrop;
 mod client_unpacker;
 mod config;
+mod engine_mods;
 mod game_process;
 mod mod_catalog;
 mod shader_combiner;

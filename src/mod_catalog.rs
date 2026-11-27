@@ -270,8 +270,9 @@ mod tests {
         let url = "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json";
         let (resolved, mods) = fetch_catalog(url).expect("catalog fetch should succeed over HTTPS");
         assert_eq!(resolved, url);
-        assert!(mods.len() >= 51, "catalog should contain all 51 mods, got {}", mods.len());
-        assert_eq!(mods[0].id, "motion-blur");
+        assert!(mods.len() >= 68, "catalog should contain all 68 mods, got {}", mods.len());
+        assert!(mods.iter().any(|m| m.id == "motion-blur"));
+        assert!(mods.iter().any(|m| m.id == "ruby-arsenal"));
         let tmp_cache = std::env::temp_dir().join("horizon_test_icon_cache");
         let icon = fetch_icon_cached(&tmp_cache, &mods[0].id, &mods[0].icon_url);
         assert!(icon.is_some(), "icon download and decode should succeed");

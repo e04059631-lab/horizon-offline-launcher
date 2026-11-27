@@ -8,6 +8,7 @@ import {
     LiquidTabBar,
     LiquidSegmented4,
     LiquidSegmented3,
+    LiquidSegmented2,
     Toggle,
     Slider,
     Field,
@@ -46,6 +47,14 @@ export struct CatalogModInfo {
     icon: image,
     is-shader: bool,
     is-resourcepack: bool,
+}
+
+export struct EngineModInfo {
+    id: string,
+    name: string,
+    description: string,
+    category: string,
+    enabled: bool,
 }
 
 export struct LogEntry {
@@ -94,6 +103,9 @@ export component AppWindow inherits Window {
     in-out property <[ModInfo]> mods: [];
     in-out property <int> active-mods-count: 0;
     in-out property <int> total-mods-count: 0;
+    in-out property <[EngineModInfo]> engine-mods: [];
+    in-out property <int> active-engine-mods-count: 0;
+    in-out property <int> left-mods-subtab: 0; // 0 = Installed files, 1 = Built-in PvP & Engine (20)
     in-out property <[CatalogModInfo]> catalog-mods: [];
     in-out property <bool> catalog-loading: false;
     in-out property <string> catalog-error: "";
@@ -127,6 +139,8 @@ export component AppWindow inherits Window {
     callback refresh-mods();
     callback toggle-mod(string);
     callback delete-mod(string);
+    callback toggle-engine-mod(string);
+    callback apply-pvp-preset();
     callback refresh-catalog();
     callback search-catalog(string);
     callback filter-catalog(int);
@@ -238,7 +252,7 @@ export component AppWindow inherits Window {
             LiquidTabBar {
                 horizontal-stretch: 0;
                 active-tab <=> root.active-tab;
-                active-mods-count: root.active-mods-count;
+                active-mods-count: root.active-mods-count + root.active-engine-mods-count;
                 tab-selected(idx) => {
                     if idx == 1 {
                         root.refresh-mods();
@@ -570,8 +584,8 @@ export component AppWindow inherits Window {
                                     icon-color: Theme.green;
                                     label: "Режим и моды";
                                     value: root.creative-mode
-                                        ? "Творческий · \{root.active-mods-count} мод."
-                                        : "Обычный · \{root.active-mods-count} мод.";
+                                        ? "Творческий · \{root.active-mods-count + root.active-engine-mods-count} мод."
+                                        : "Обычный · \{root.active-mods-count + root.active-engine-mods-count} мод.";
                                 }
                             }
                         }
@@ -637,7 +651,7 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     spacing: 16px;
 
-                    // LEFT COLUMN: Downloaded / Installed Mods
+                    // LEFT COLUMN: Installed Mods | Built-in Engine PvP & QoL Mods
                     Glass {
                         horizontal-stretch: 11;
                         preferred-width: 0px;
@@ -645,31 +659,36 @@ export component AppWindow inherits Window {
 
                         VerticalLayout {
                             padding: 22px;
-                            spacing: 14px;
+                            spacing: 12px;
 
                             HorizontalLayout {
                                 spacing: 8px;
 
                                 VerticalLayout {
                                     horizontal-stretch: 1;
+                                    preferred-width: 0px;
                                     alignment: center;
                                     spacing: 2px;
                                     Text {
-                                        text: "Скачанные моды";
+                                        text: root.left-mods-subtab == 0 ? "Скачанные моды" : "PvP и движок (20)";
                                         font-size: 22px;
                                         font-weight: 700;
                                         color: Theme.text-primary;
+                                        overflow: elide;
                                         animate color { duration: 200ms; }
                                     }
                                     Text {
-                                        text: "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hmod .hshader .jar .zip";
+                                        text: root.left-mods-subtab == 0
+                                            ? "Активно \{root.active-mods-count} из \{root.total-mods-count} · .hmod .hshader .zip"
+                                            : "Включено \{root.active-engine-mods-count} из 20 · Встроено в Horizon 26.3";
                                         font-size: 12px;
                                         color: Theme.text-muted;
+                                        overflow: elide;
                                         animate color { duration: 200ms; }
                                     }
                                 }
 
-                                VerticalLayout {
+                                if root.left-mods-subtab == 0: VerticalLayout {
                                     alignment: center;
                                     GlassButton {
                                         btn-height: 38px;
@@ -678,7 +697,7 @@ export component AppWindow inherits Window {
                                         clicked => { root.refresh-mods(); }
                                     }
                                 }
-                                VerticalLayout {
+                                if root.left-mods-subtab == 0: VerticalLayout {
                                     alignment: center;
                                     GlassButton {
                                         btn-height: 38px;
@@ -687,9 +706,25 @@ export component AppWindow inherits Window {
                                         clicked => { root.open-mods-folder(); }
                                     }
                                 }
+                                if root.left-mods-subtab == 1: VerticalLayout {
+                                    alignment: center;
+                                    GlassButton {
+                                        btn-height: 38px;
+                                        kind: "primary";
+                                        icon: "\u{e3e7}";
+                                        text: "PvP-набор";
+                                        clicked => { root.apply-pvp-preset(); }
+                                    }
+                                }
                             }
 
-                            if root.mods.length == 0: Rectangle {
+                            LiquidSegmented2 {
+                                label0: "Установленные (\{root.total-mods-count})";
+                                label1: "PvP и движок (\{root.active-engine-mods-count}/20)";
+                                selected <=> root.left-mods-subtab;
+                            }
+
+                            if root.left-mods-subtab == 0 && root.mods.length == 0: Rectangle {
                                 vertical-stretch: 1;
                                 border-radius: 22px;
                                 background: Theme.inner-tile-disabled;
@@ -711,7 +746,7 @@ export component AppWindow inherits Window {
                                         horizontal-alignment: center;
                                     }
                                     Text {
-                                        text: "Скачай моды из каталога справа или закинь файлы в папку";
+                                        text: "Скачай моды из каталога справа или включи встроенные PvP-моды во вкладке выше";
                                         font-size: 12.5px;
                                         color: Theme.text-muted;
                                         horizontal-alignment: center;
@@ -720,7 +755,7 @@ export component AppWindow inherits Window {
                                 }
                             }
 
-                            if root.mods.length > 0: ScrollView {
+                            if root.left-mods-subtab == 0 && root.mods.length > 0: ScrollView {
                                 vertical-stretch: 1;
 
                                 VerticalLayout {
@@ -732,6 +767,7 @@ export component AppWindow inherits Window {
                                     for item in root.mods: Rectangle {
                                         height: 62px;
                                         border-radius: 18px;
+                                        clip: true;
                                         background: mod-ta.has-hover
                                             ? Theme.inner-tile-hover
                                             : (item.enabled ? Theme.inner-tile : Theme.inner-tile-disabled);
@@ -770,6 +806,7 @@ export component AppWindow inherits Window {
 
                                             VerticalLayout {
                                                 horizontal-stretch: 1;
+                                                preferred-width: 0px;
                                                 alignment: center;
                                                 spacing: 2px;
                                                 Text {
@@ -781,9 +818,10 @@ export component AppWindow inherits Window {
                                                     animate color { duration: 160ms; }
                                                 }
                                                 Text {
-                                                    text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "PvP / Пак · " : "Мод · ")) + "\{item.size-kb} КБ · " + (item.enabled ? "включён" : "выключен");
+                                                    text: (item.is-shader ? "Шейдер · " : (item.is-resourcepack ? "PvP / Пак · " : "Мод .hmod · ")) + "\{item.size-kb} КБ · " + (item.enabled ? "включён" : "выключен");
                                                     font-size: 11px;
                                                     color: Theme.text-muted;
+                                                    overflow: elide;
                                                 }
                                             }
 
@@ -814,6 +852,110 @@ export component AppWindow inherits Window {
                                                 Toggle {
                                                     checked: item.enabled;
                                                     toggled(_) => { root.toggle-mod(item.file-name); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if root.left-mods-subtab == 1: ScrollView {
+                                vertical-stretch: 1;
+
+                                VerticalLayout {
+                                    spacing: 8px;
+                                    padding-top: 2px;
+                                    padding-bottom: 10px;
+                                    padding-right: 6px;
+
+                                    for emod in root.engine-mods: Rectangle {
+                                        height: Math.max(72px, em-row.preferred-height);
+                                        border-radius: 18px;
+                                        clip: true;
+                                        background: em-ta.has-hover
+                                            ? Theme.inner-tile-hover
+                                            : (emod.enabled ? Theme.inner-tile : Theme.inner-tile-disabled);
+                                        animate background { duration: 150ms; }
+
+                                        em-ta := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.toggle-engine-mod(emod.id); }
+                                        }
+
+                                        em-row := HorizontalLayout {
+                                            padding: 12px;
+                                            spacing: 12px;
+
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Rectangle {
+                                                    width: 38px;
+                                                    height: 38px;
+                                                    border-radius: 12px;
+                                                    background: emod.enabled
+                                                        ? (emod.category == "PvP"
+                                                            ? @linear-gradient(135deg, #FF7A2F 0%, #FF3B30 100%)
+                                                            : (emod.category == "HUD"
+                                                                ? @linear-gradient(135deg, #5AC8FA 0%, #0A84FF 100%)
+                                                                : @linear-gradient(135deg, #34C759 0%, #0D9488 100%)))
+                                                        : @linear-gradient(135deg, #8E8E93 0%, #636366 100%);
+                                                    Icon {
+                                                        text: emod.category == "PvP" ? "\u{e3e7}" : (emod.category == "HUD" ? "\u{e8b6}" : "\u{e8b8}");
+                                                        font-size: 20px;
+                                                        color: #FFFFFF;
+                                                    }
+                                                }
+                                            }
+
+                                            VerticalLayout {
+                                                horizontal-stretch: 1;
+                                                preferred-width: 0px;
+                                                alignment: center;
+                                                spacing: 3px;
+
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    alignment: start;
+                                                    Text {
+                                                        text: emod.name;
+                                                        font-size: 13.5px;
+                                                        font-weight: 700;
+                                                        color: emod.enabled ? Theme.text-primary : Theme.text-secondary;
+                                                        overflow: elide;
+                                                        animate color { duration: 160ms; }
+                                                    }
+                                                    Rectangle {
+                                                        height: 18px;
+                                                        border-radius: 9px;
+                                                        background: Theme.badge-pill-bg;
+                                                        HorizontalLayout {
+                                                            padding-left: 7px;
+                                                            padding-right: 7px;
+                                                            Text {
+                                                                text: emod.category;
+                                                                font-size: 10px;
+                                                                font-weight: 700;
+                                                                color: Theme.accent-label;
+                                                                vertical-alignment: center;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: emod.description;
+                                                    font-size: 11.5px;
+                                                    color: Theme.text-muted;
+                                                    wrap: word-wrap;
+                                                    animate color { duration: 160ms; }
+                                                }
+                                            }
+
+                                            VerticalLayout {
+                                                alignment: center;
+                                                Toggle {
+                                                    checked: emod.enabled;
+                                                    toggled(_) => { root.toggle-engine-mod(emod.id); }
                                                 }
                                             }
                                         }
@@ -872,15 +1014,15 @@ export component AppWindow inherits Window {
                             Field {
                                 icon: "\u{e8b6}";
                                 text <=> root.catalog-search;
-                                placeholder: "Поиск среди 50+ шейдеров и PvP-модов...";
+                                placeholder: "Поиск среди 68 модов, шейдеров и PvP-паков...";
                                 edited => { root.search-catalog(root.catalog-search); }
                             }
 
-                            LiquidSegmented3 {
-                                stretch: true;
+                            LiquidSegmented4 {
                                 label0: "Все";
-                                label1: "Шейдеры";
-                                label2: "PvP и паки";
+                                label1: "Моды";
+                                label2: "Шейдеры";
+                                label3: "PvP-паки";
                                 selected <=> root.catalog-filter;
                                 changed(idx) => { root.filter-catalog(idx); }
                             }

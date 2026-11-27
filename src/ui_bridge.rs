@@ -1,5 +1,6 @@
 use crate::client_unpacker;
 use crate::config::LauncherConfig;
+use crate::engine_mods;
 use crate::game_process::GameProcess;
 use crate::mod_catalog::{self, RemoteMod};
 use crate::shader_combiner;
@@ -22,7 +23,7 @@ struct CatalogState {
     downloading_ids: HashSet<String>,
     icons: HashMap<String, (u32, u32, Vec<u8>)>,
     query: String,
-    filter: i32, // 0 = all, 1 = shaders, 2 = resourcepacks/pvp
+    filter: i32, // 0 = all, 1 = .hmod mods, 2 = shaders, 3 = resourcepacks/pvp
 }
 
 pub fn setup_ui_bridge(window: &AppWindow) {
@@ -100,6 +101,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         write_picked_shader_pack(&game_dir, &picked);
     }
     update_mods_ui(window, &game_dir, &mods_dir, &config);
+    update_engine_mods_ui(window, &game_dir);
 
     // 3. Initial Logs (Empty by default, showing only real game logs)
     let log_entries = Arc::new(Mutex::new(Vec::<LogEntry>::new()));
@@ -227,7 +229,28 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         window.on_refresh_mods(move || {
             if let Some(w) = window_weak.upgrade() {
                 update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
+                update_engine_mods_ui(&w, &game_dir_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
+            }
+        });
+    }
+    {
+        let window_weak = window.as_weak();
+        let game_dir_clone = game_dir.clone();
+        window.on_toggle_engine_mod(move |mod_id| {
+            engine_mods::toggle_engine_mod(&game_dir_clone, &mod_id);
+            if let Some(w) = window_weak.upgrade() {
+                update_engine_mods_ui(&w, &game_dir_clone);
+            }
+        });
+    }
+    {
+        let window_weak = window.as_weak();
+        let game_dir_clone = game_dir.clone();
+        window.on_apply_pvp_preset(move || {
+            engine_mods::apply_pvp_preset(&game_dir_clone);
+            if let Some(w) = window_weak.upgrade() {
+                update_engine_mods_ui(&w, &game_dir_clone);
             }
         });
     }
@@ -261,12 +284,19 @@ pub fn setup_ui_bridge(window: &AppWindow) {
             } else {
                 let current_path = mods_dir_clone.join(&file_name_str);
                 if current_path.exists() {
-                    let target_path = if let Some(stripped) = file_name_str.strip_suffix(".disabled") {
-                        mods_dir_clone.join(stripped)
+                    if let Some(stripped) = file_name_str.strip_suffix(".disabled") {
+                        let target_path = mods_dir_clone.join(stripped);
+                        let _ = fs::rename(&current_path, &target_path);
+                        if is_hmod_file(stripped) {
+                            engine_mods::set_hmod_enabled(&game_dir_clone, &target_path, true);
+                        }
+                    } else if is_hmod_file(&file_name_str) {
+                        let currently_on = engine_mods::is_hmod_enabled(&game_dir_clone, &current_path);
+                        engine_mods::set_hmod_enabled(&game_dir_clone, &current_path, !currently_on);
                     } else {
-                        mods_dir_clone.join(format!("{}.disabled", file_name_str))
-                    };
-                    let _ = fs::rename(&current_path, &target_path);
+                        let target_path = mods_dir_clone.join(format!("{}.disabled", file_name_str));
+                        let _ = fs::rename(&current_path, &target_path);
+                    }
                 }
             }
             if let Some(w) = window_weak.upgrade() {
@@ -305,6 +335,9 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 } else {
                     let target_path = mods_dir_clone.join(clean);
                     if target_path.is_file() {
+                        if is_hmod_file(&file_name_str) {
+                            engine_mods::remove_hmod_entry(&game_dir_clone, &target_path);
+                        }
                         let _ = fs::remove_file(&target_path);
                     }
                 }
@@ -417,7 +450,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                     &remote_mod.file_name,
                     &remote_mod.download_url,
                 );
-                if res.is_ok() {
+                if let Ok(ref saved_path) = res {
                     if is_shader {
                         let mut cfg = config_bg.lock().unwrap();
                         if !cfg
@@ -435,6 +468,8 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                         cfg.save();
                     } else if is_rp {
                         set_resource_pack_enabled(&game_dir_bg, &remote_mod.file_name, true);
+                    } else if is_hmod_file(&remote_mod.file_name) {
+                        engine_mods::set_hmod_enabled(&game_dir_bg, saved_path, true);
                     }
                 }
                 {
@@ -713,8 +748,9 @@ fn rebuild_catalog_ui(
         .filter(|m| {
             let (is_shader, is_rp) = mod_kind_flags(&m.kind, &m.file_name);
             let cat_ok = match state.filter {
-                1 => is_shader,
-                2 => is_rp,
+                1 => !is_shader && !is_rp,
+                2 => is_shader,
+                3 => is_rp,
                 _ => true,
             };
             let search_ok = q.is_empty()
@@ -760,6 +796,15 @@ fn is_shader_file(file_name: &str) -> bool {
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.eq_ignore_ascii_case("hshader"))
+        .unwrap_or(false)
+}
+
+fn is_hmod_file(file_name: &str) -> bool {
+    let base = file_name.strip_suffix(".disabled").unwrap_or(file_name);
+    Path::new(base)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("hmod"))
         .unwrap_or(false)
 }
 
@@ -920,6 +965,23 @@ fn update_mods_ui(
     window.set_total_mods_count(total_count);
 }
 
+fn update_engine_mods_ui(window: &AppWindow, game_dir: &Path) {
+    let states = engine_mods::load_engine_mod_states(game_dir);
+    let active = states.iter().filter(|(_, on)| *on).count() as i32;
+    let items: Vec<EngineModInfo> = states
+        .into_iter()
+        .map(|(spec, enabled)| EngineModInfo {
+            id: spec.id.into(),
+            name: spec.name.into(),
+            description: spec.description.into(),
+            category: spec.category.into(),
+            enabled,
+        })
+        .collect();
+    window.set_engine_mods(ModelRc::new(VecModel::from(items)));
+    window.set_active_engine_mods_count(active);
+}
+
 fn setup_client_unpacking(window: &AppWindow) {
     if client_unpacker::is_client_installed() {
         window.set_is_unpacking(false);
@@ -1039,6 +1101,8 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path, enabled_shaders: &[String]) -> Ve
 
             let (enabled, base_name) = if let Some(stripped) = file_name.strip_suffix(".disabled") {
                 (false, stripped.to_string())
+            } else if is_hmod_file(&file_name) {
+                (engine_mods::is_hmod_enabled(game_dir, &p), file_name.clone())
             } else {
                 (true, file_name.clone())
             };
