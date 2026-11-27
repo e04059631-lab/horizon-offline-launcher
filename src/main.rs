@@ -9,6 +9,7 @@ mod game_process;
 mod mod_catalog;
 mod shader_combiner;
 mod ui_bridge;
+mod updater;
 
 use slint::ComponentHandle;
 use ui_bridge::{setup_ui_bridge, AppWindow};
@@ -42,6 +43,8 @@ mod win_timer {
 }
 
 fn main() -> Result<(), slint::PlatformError> {
+    updater::cleanup_old_binary();
+
     if let cli::CliAction::Exit(code) = cli::handle_args() {
         std::process::exit(code);
     }

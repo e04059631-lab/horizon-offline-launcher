@@ -7,6 +7,7 @@
 use crate::client_unpacker;
 use crate::config::LauncherConfig;
 use crate::game_process::{GameProcess, GameState};
+use crate::updater;
 use std::fs;
 use std::io::Write;
 #[cfg(unix)]
@@ -52,6 +53,7 @@ pub fn handle_args() -> CliAction {
         }
         "--mods" | "mods" => cmd_mods(),
         "--play" | "play" => cmd_play(&args[1..]),
+        "--update" | "update" => cmd_update(),
         other => {
             eprintln!("Неизвестная команда: {other}");
             eprintln!("Запустите `horizon-launcher --help` для списка доступных команд.");
@@ -75,6 +77,7 @@ fn print_help() {
            horizon-launcher --status              Показать статус клиента, папок и настроек\n\
            horizon-launcher --unpack [--force]    Распаковать встроенный клиент Horizon 26.3\n\
            horizon-launcher --mods                Список установленных шейдеров и PvP-паков\n\
+           horizon-launcher --update              Проверить и установить обновление лаунчера\n\
            horizon-launcher --version             Показать версию лаунчера\n\
            horizon-launcher --help                Показать эту справку\n\
          \n\
@@ -120,6 +123,44 @@ fn cmd_status() -> i32 {
     println!("  ОЗУ / дальность:  {} ГБ / {} чанков", config.ram_gb, config.render_distance);
     println!("  Каталог модов:    {}", config.mods_repo_url);
     0
+}
+
+fn cmd_update() -> i32 {
+    println!("Проверка обновлений (текущая версия: v{APP_VERSION})...");
+    match updater::check_for_update() {
+        Ok(Some(info)) => {
+            println!(
+                "Доступно обновление: v{} ({})",
+                info.version,
+                updater::format_size_mb(info.size_bytes)
+            );
+            println!("{}\n", info.notes);
+            let abort = Arc::new(AtomicBool::new(false));
+            let res = updater::download_and_install_update(&info, abort, |p| {
+                print!("\r  {} {}        ", p.percent_text, p.status_text);
+                let _ = std::io::stdout().flush();
+            });
+            println!();
+            match res {
+                Ok(()) => {
+                    println!("[OK] Обновление до v{} установлено!", info.version);
+                    0
+                }
+                Err(e) => {
+                    eprintln!("Ошибка обновления: {e}");
+                    1
+                }
+            }
+        }
+        Ok(None) => {
+            println!("[OK] У вас уже установлена последняя версия (v{APP_VERSION}).");
+            0
+        }
+        Err(e) => {
+            eprintln!("Ошибка проверки обновлений: {e}");
+            1
+        }
+    }
 }
 
 fn cmd_mods() -> i32 {

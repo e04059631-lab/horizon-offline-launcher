@@ -106,16 +106,12 @@ fn main() {
     ])));
     app.show().unwrap();
 
-    let shots: [(&str, u32, u32, i32, i32, bool, &str); 6] = [
-        ("v6_mc_home_night", 1100, 720, 0, 0, true, "blue"),
-        ("v6_mc_home_valley", 1100, 720, 0, 0, true, "aurora"),
-        ("v6_mc_home_caves", 1100, 720, 0, 0, true, "dusk"),
-        ("v6_mc_home_dawn", 1100, 720, 0, 0, true, "sunset"),
-        ("v6_mc_mods_night", 1100, 720, 1, 0, true, "blue"),
-        ("v6_mc_settings_night", 1100, 720, 2, 0, true, "blue"),
+    let shots: [(&str, u32, u32, i32, i32, bool, &str, bool); 2] = [
+        ("v7_settings", 1100, 720, 2, 0, true, "blue", false),
+        ("v7_update_dialog", 1100, 720, 0, 0, true, "blue", true),
     ];
 
-    for (name, w, h, tab, mods_view, dark, bg) in shots {
+    for (name, w, h, tab, mods_view, dark, bg, show_upd) in shots {
         window.set_size(slint::PhysicalSize::new(w, h));
         backdrop::apply_preset(&app, bg, None);
         app.set_backdrop_index(backdrop::preset_to_index(bg));
@@ -123,6 +119,14 @@ fn main() {
         app.global::<Theme>().set_dark(dark);
         app.set_active_tab(tab);
         app.set_mods_view(mods_view);
+        app.set_app_version("2.1.0".into());
+        app.set_update_new_version("2.2.0".into());
+        app.set_update_size_text("14.8 МБ".into());
+        app.set_update_notes(
+            "Что нового в v2.2.0\n\n• Автообновление прямо в лаунчере с прогресс-баром и автоматическим перезапуском.\n• Нативная поддержка Linux (x86_64) и установка одной командой.\n• Улучшена скорость загрузки каталога шейдеров и PvP-паков."
+                .into(),
+        );
+        app.set_show_update_dialog(show_upd);
         slint::platform::update_timers_and_animations();
         window.request_redraw();
 

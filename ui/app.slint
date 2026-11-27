@@ -119,6 +119,18 @@ export component AppWindow inherits Window {
     in-out property <bool> unpack-has-error: false;
     in-out property <string> unpack-error-text: "";
 
+    in-out property <string> app-version: "2.1.0";
+    in-out property <bool> show-update-dialog: false;
+    in-out property <string> update-new-version: "";
+    in-out property <string> update-notes: "";
+    in-out property <string> update-size-text: "";
+    in-out property <bool> update-downloading: false;
+    in-out property <float> update-progress: 0.0;
+    in-out property <string> update-status-text: "";
+    in-out property <string> update-percent-text: "0%";
+    in-out property <string> update-error-text: "";
+    in-out property <bool> update-checking: false;
+
     callback play();
     callback stop();
     callback open-mods-folder();
@@ -138,6 +150,9 @@ export component AppWindow inherits Window {
     callback set-nickname(string);
     callback clear-log();
     callback repair-client();
+    callback check-updates();
+    callback start-update();
+    callback cancel-update();
     callback retry-unpack();
 
     function resolution-index() -> int {
@@ -1320,11 +1335,27 @@ export component AppWindow inherits Window {
                             VerticalLayout {
                                 spacing: 10px;
 
-                                Text {
-                                    text: "Каталог и файлы";
-                                    font-size: 16px;
-                                    font-weight: 700;
-                                    color: Theme.text-primary;
+                                HorizontalLayout {
+                                    height: 36px;
+                                    spacing: 10px;
+                                    Text {
+                                        text: "Каталог и файлы";
+                                        font-size: 16px;
+                                        font-weight: 700;
+                                        color: Theme.text-primary;
+                                        vertical-alignment: center;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        GlassButton {
+                                            btn-height: 32px;
+                                            icon: "\u{e923}";
+                                            text: root.update-checking ? "Проверка..." : "Обновления · v\{root.app-version}";
+                                            enabled: !root.update-checking && !root.update-downloading;
+                                            clicked => { root.check-updates(); }
+                                        }
+                                    }
                                 }
 
                                 HorizontalLayout {
@@ -1757,6 +1788,183 @@ export component AppWindow inherits Window {
                         icon: "\u{e5d5}";
                         text: "Повторить";
                         clicked => { root.retry-unpack(); }
+                    }
+                }
+            }
+        }
+    }
+
+    // =====================================================================
+    // Smooth Spring Auto-Update Sheet
+    // =====================================================================
+    update-overlay := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: root.show-update-dialog ? Theme.overlay-scrim-on : Theme.overlay-scrim-off;
+        visible: root.show-update-dialog || update-card.y < root.height - 2px;
+
+        animate background {
+            duration: 220ms;
+            easing: ease-out;
+        }
+
+        TouchArea {
+            enabled: root.show-update-dialog;
+            clicked => {
+                if !root.update-downloading {
+                    root.show-update-dialog = false;
+                }
+            }
+        }
+
+        update-card := Glass {
+            width: 500px;
+            height: root.update-error-text != "" && !root.update-downloading ? 430px : 390px;
+            x: (parent.width - self.width) / 2;
+            y: root.show-update-dialog ? (parent.height - self.height) / 2 : parent.height + 24px;
+            radius: 28px;
+            tint: Theme.glass-thick;
+
+            animate y {
+                duration: 340ms;
+                easing: spring(0.14);
+            }
+
+            TouchArea { }
+
+            VerticalLayout {
+                padding: 26px;
+                spacing: 14px;
+
+                HorizontalLayout {
+                    spacing: 14px;
+                    VerticalLayout {
+                        alignment: center;
+                        Image {
+                            width: 46px;
+                            height: 46px;
+                            source: Backdrop.tinted-icon;
+                            image-fit: contain;
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 3px;
+                        Text {
+                            text: "Доступно обновление";
+                            font-size: 20px;
+                            font-weight: 700;
+                            color: Theme.text-primary;
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Text {
+                                text: "v\{root.app-version} → v\{root.update-new-version}";
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: Theme.accent-label;
+                            }
+                            if root.update-size-text != "": Text {
+                                text: "· \{root.update-size-text}";
+                                font-size: 13px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+                    border-radius: 16px;
+                    background: Theme.inner-tile;
+                    clip: true;
+
+                    notes-sv := ScrollView {
+                        content-width: notes-sv.visible-width;
+                        VerticalLayout {
+                            width: notes-sv.visible-width;
+                            padding: 14px;
+                            alignment: start;
+                            Text {
+                                text: root.update-notes != "" ? root.update-notes : "Улучшения стабильности и новые функции лаунчера.";
+                                font-size: 13px;
+                                color: Theme.text-secondary;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
+                if root.update-downloading: VerticalLayout {
+                    spacing: 8px;
+
+                    Rectangle {
+                        height: 8px;
+                        border-radius: 4px;
+                        background: Theme.fill-strong;
+                        clip: true;
+                        Rectangle {
+                            x: 0px;
+                            width: parent.width * Math.clamp(root.update-progress, 0.0, 1.0);
+                            border-radius: 4px;
+                            background: Theme.accent;
+                            animate width { duration: 140ms; easing: ease-out; }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        Text {
+                            horizontal-stretch: 1;
+                            text: root.update-status-text;
+                            font-size: 12px;
+                            color: Theme.text-secondary;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: root.update-percent-text;
+                            font-size: 12px;
+                            font-weight: 700;
+                            color: Theme.accent-label;
+                        }
+                    }
+                }
+
+                if root.update-error-text != "" && !root.update-downloading: Text {
+                    text: root.update-error-text;
+                    font-size: 12px;
+                    color: Theme.red;
+                    wrap: word-wrap;
+                }
+
+                if !root.update-downloading: HorizontalLayout {
+                    spacing: 10px;
+                    GlassButton {
+                        horizontal-stretch: 1;
+                        btn-height: 44px;
+                        text: "Потом";
+                        clicked => {
+                            root.show-update-dialog = false;
+                            root.update-error-text = "";
+                        }
+                    }
+                    GlassButton {
+                        horizontal-stretch: 1;
+                        btn-height: 44px;
+                        kind: "primary";
+                        icon: "\u{e2c4}";
+                        text: root.update-error-text != "" ? "Повторить" : "Обновить сейчас";
+                        clicked => { root.start-update(); }
+                    }
+                }
+
+                if root.update-downloading: HorizontalLayout {
+                    GlassButton {
+                        horizontal-stretch: 1;
+                        btn-height: 44px;
+                        text: "Отменить загрузку";
+                        clicked => { root.cancel-update(); }
                     }
                 }
             }

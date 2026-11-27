@@ -4,6 +4,7 @@ use crate::engine_mods;
 use crate::game_process::GameProcess;
 use crate::mod_catalog::{self, RemoteMod};
 use crate::shader_combiner;
+use crate::updater::{self, UpdateInfo};
 use slint::{ComponentHandle, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -61,6 +62,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         window.set_server_address(cfg.last_server.clone().into());
         window.set_mods_repo_url(cfg.mods_repo_url.clone().into());
         window.set_is_playing(false);
+        window.set_app_version(updater::CURRENT_VERSION.into());
         window.set_mods_dir_path(mods_dir.display().to_string().into());
         window.set_client_ready(cfg.find_version_dir().is_some());
         window.set_has_embedded_payload(
@@ -674,6 +676,168 @@ pub fn setup_ui_bridge(window: &AppWindow) {
 
     // 13. Client Unpacking Flow
     setup_client_unpacking(window);
+
+    // 14. Auto-Updater (Background check on launch + manual check + in-app download & restart)
+    let pending_update: Arc<Mutex<Option<UpdateInfo>>> = Arc::new(Mutex::new(None));
+    let update_abort: Arc<Mutex<Option<Arc<AtomicBool>>>> = Arc::new(Mutex::new(None));
+
+    {
+        let window_weak = window.as_weak();
+        let pending_clone = Arc::clone(&pending_update);
+        window.on_check_updates(move || {
+            spawn_check_updates(window_weak.clone(), Arc::clone(&pending_clone), true);
+        });
+    }
+
+    {
+        let window_weak = window.as_weak();
+        let pending_clone = Arc::clone(&pending_update);
+        let abort_slot = Arc::clone(&update_abort);
+        window.on_start_update(move || {
+            let Some(info) = pending_clone.lock().unwrap().clone() else {
+                return;
+            };
+            let abort_flag = Arc::new(AtomicBool::new(false));
+            *abort_slot.lock().unwrap() = Some(Arc::clone(&abort_flag));
+
+            let _ = window_weak.upgrade_in_event_loop(|w| {
+                w.set_update_downloading(true);
+                w.set_update_error_text("".into());
+                w.set_update_progress(0.0);
+                w.set_update_percent_text("0%".into());
+                w.set_update_status_text("Подготовка к загрузке...".into());
+            });
+
+            let w_weak = window_weak.clone();
+            let abort_slot_done = Arc::clone(&abort_slot);
+            thread::spawn(move || {
+                let w_prog = w_weak.clone();
+                let res = updater::download_and_install_update(&info, Arc::clone(&abort_flag), move |p| {
+                    let _ = w_prog.upgrade_in_event_loop(move |w| {
+                        w.set_update_progress(p.fraction);
+                        w.set_update_status_text(p.status_text.into());
+                        w.set_update_percent_text(p.percent_text.into());
+                    });
+                });
+
+                *abort_slot_done.lock().unwrap() = None;
+
+                match res {
+                    Ok(()) => {
+                        // New updated launcher has already been spawned; exit cleanly
+                        std::process::exit(0);
+                    }
+                    Err(err) => {
+                        let cancelled = abort_flag.load(std::sync::atomic::Ordering::SeqCst);
+                        let _ = w_weak.upgrade_in_event_loop(move |w| {
+                            w.set_update_downloading(false);
+                            if cancelled {
+                                w.set_show_update_dialog(false);
+                                w.set_update_error_text("".into());
+                            } else {
+                                w.set_update_error_text(err.into());
+                            }
+                        });
+                    }
+                }
+            });
+        });
+    }
+
+    {
+        let window_weak = window.as_weak();
+        let abort_slot = Arc::clone(&update_abort);
+        window.on_cancel_update(move || {
+            if let Some(flag) = abort_slot.lock().unwrap().as_ref() {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+            let _ = window_weak.upgrade_in_event_loop(|w| {
+                w.set_update_downloading(false);
+                w.set_show_update_dialog(false);
+                w.set_update_error_text("".into());
+            });
+        });
+    }
+
+    // Automatic silent update check shortly after startup
+    spawn_check_updates(window.as_weak(), Arc::clone(&pending_update), false);
+}
+
+fn spawn_check_updates(
+    window_weak: slint::Weak<AppWindow>,
+    pending_update: Arc<Mutex<Option<UpdateInfo>>>,
+    manual: bool,
+) {
+    if manual {
+        let _ = window_weak.upgrade_in_event_loop(|w| {
+            w.set_update_checking(true);
+            w.set_has_status_message(false);
+        });
+    }
+
+    thread::spawn(move || {
+        if !manual {
+            thread::sleep(Duration::from_millis(1200));
+        }
+
+        match updater::check_for_update() {
+            Ok(Some(info)) => {
+                // If automatic check, wait until first-run unpacking finishes before showing the sheet
+                if !manual {
+                    for _ in 0..600 {
+                        let unpacking = Arc::new(AtomicBool::new(false));
+                        let flag = Arc::clone(&unpacking);
+                        let _ = window_weak.upgrade_in_event_loop(move |w| {
+                            flag.store(w.get_is_unpacking(), std::sync::atomic::Ordering::SeqCst);
+                        });
+                        thread::sleep(Duration::from_millis(250));
+                        if !unpacking.load(std::sync::atomic::Ordering::SeqCst) {
+                            break;
+                        }
+                    }
+                }
+
+                let ver = info.version.clone();
+                let notes = info.notes.clone();
+                let size_text = updater::format_size_mb(info.size_bytes);
+                *pending_update.lock().unwrap() = Some(info);
+
+                let _ = window_weak.upgrade_in_event_loop(move |w| {
+                    w.set_update_checking(false);
+                    w.set_update_new_version(ver.into());
+                    w.set_update_notes(notes.into());
+                    w.set_update_size_text(size_text.into());
+                    w.set_update_error_text("".into());
+                    w.set_update_downloading(false);
+                    w.set_update_progress(0.0);
+                    w.set_show_update_dialog(true);
+                });
+            }
+            Ok(None) => {
+                if manual {
+                    let _ = window_weak.upgrade_in_event_loop(|w| {
+                        w.set_update_checking(false);
+                        w.set_status_text(
+                            format!("Установлена последняя версия (v{})", updater::CURRENT_VERSION)
+                                .into(),
+                        );
+                        w.set_status_is_error(false);
+                        w.set_has_status_message(true);
+                    });
+                }
+            }
+            Err(err) => {
+                if manual {
+                    let _ = window_weak.upgrade_in_event_loop(move |w| {
+                        w.set_update_checking(false);
+                        w.set_status_text(err.into());
+                        w.set_status_is_error(true);
+                        w.set_has_status_message(true);
+                    });
+                }
+            }
+        }
+    });
 }
 
 fn spawn_fetch_catalog(
