@@ -36,9 +36,9 @@ fn main() {
     app.set_has_embedded_payload(true);
     app.set_mods_repo_url("https://raw.githubusercontent.com/xwwerz/horizon-mods/main/catalog.json".into());
     app.set_mods(ModelRc::new(VecModel::from(vec![
-        ModInfo { name: "motion-blur.hshader".into(), file_name: "motion-blur.hshader".into(), size_kb: 2, enabled: true, is_shader: true, is_resourcepack: false },
-        ModInfo { name: "horizon-ultra.hshader".into(), file_name: "horizon-ultra.hshader".into(), size_kb: 3, enabled: true, is_shader: true, is_resourcepack: false },
-        ModInfo { name: "low-fire.zip".into(), file_name: "low-fire.zip".into(), size_kb: 40, enabled: true, is_shader: false, is_resourcepack: true },
+        ModInfo { name: "Motion Blur".into(), file_name: "motion-blur.hshader".into(), size_kb: 2, enabled: true, is_shader: true, is_resourcepack: false, has_icon: false, icon: Image::default() },
+        ModInfo { name: "Horizon Ultra".into(), file_name: "horizon-ultra.hshader".into(), size_kb: 3, enabled: true, is_shader: true, is_resourcepack: false, has_icon: false, icon: Image::default() },
+        ModInfo { name: "Low On Fire".into(), file_name: "low-on-fire.zip".into(), size_kb: 42, enabled: true, is_shader: false, is_resourcepack: true, has_icon: false, icon: Image::default() },
     ])));
     app.set_active_mods_count(3);
     app.set_total_mods_count(3);

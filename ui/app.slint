@@ -30,6 +30,8 @@ export struct ModInfo {
     enabled: bool,
     is-shader: bool,
     is-resourcepack: bool,
+    has-icon: bool,
+    icon: image,
 }
 
 export struct CatalogModInfo {
@@ -1031,17 +1033,29 @@ export component AppWindow inherits Window {
                                         VerticalLayout {
                                             alignment: center;
                                             Rectangle {
-                                                width: 40px;
-                                                height: 40px;
+                                                width: 44px;
+                                                height: 44px;
                                                 border-radius: 12px;
-                                                background: item.enabled
-                                                    ? (item.is-shader
-                                                        ? @linear-gradient(135deg, #5AC8FA 0%, #5856D6 100%)
-                                                        : (item.is-resourcepack
-                                                            ? @linear-gradient(135deg, #34C759 0%, #0D9488 100%)
-                                                            : @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%)))
-                                                    : @linear-gradient(135deg, #8E8E93 0%, #636366 100%);
-                                                Icon {
+                                                clip: true;
+                                                background: item.has-icon
+                                                    ? Theme.badge-pill-bg
+                                                    : (item.enabled
+                                                        ? (item.is-shader
+                                                            ? @linear-gradient(135deg, #5AC8FA 0%, #5856D6 100%)
+                                                            : (item.is-resourcepack
+                                                                ? @linear-gradient(135deg, #34C759 0%, #0D9488 100%)
+                                                                : @linear-gradient(135deg, #FFA45C 0%, #FF6A1F 100%)))
+                                                        : @linear-gradient(135deg, #8E8E93 0%, #636366 100%));
+
+                                                if item.has-icon: Image {
+                                                    width: 100%;
+                                                    height: 100%;
+                                                    source: item.icon;
+                                                    image-fit: cover;
+                                                    opacity: item.enabled ? 1.0 : 0.45;
+                                                }
+
+                                                if !item.has-icon: Icon {
                                                     text: item.is-shader ? "\u{e3a5}" : (item.is-resourcepack ? "\u{e3ae}" : "\u{e87b}");
                                                     font-size: 20px;
                                                     color: #FFFFFF;

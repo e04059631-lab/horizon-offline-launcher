@@ -23,6 +23,8 @@ struct CatalogState {
     mods: Vec<RemoteMod>,
     downloading_ids: HashSet<String>,
     icons: HashMap<String, (u32, u32, Vec<u8>)>,
+    local_icons: HashMap<String, Option<(u32, u32, Vec<u8>)>>,
+    icon_cache_dir: PathBuf,
     query: String,
     filter: i32, // 0 = all, 1 = shaders, 2 = resourcepacks/pvp
 }
@@ -46,6 +48,9 @@ pub fn setup_ui_bridge(window: &AppWindow) {
     let icon_cache_dir = LauncherConfig::appdata_base_dir()
         .join("cache")
         .join("mod-icons");
+    {
+        catalog_state.lock().unwrap().icon_cache_dir = icon_cache_dir.clone();
+    }
 
     // 1. Initial State Binding
     {
@@ -112,7 +117,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let picked = shader_combiner::sync_combined_shaders(&game_dir, &cfg.enabled_shaders);
         write_picked_shader_pack(&game_dir, &picked);
     }
-    update_mods_ui(window, &game_dir, &mods_dir, &config);
+    update_mods_ui(window, &game_dir, &mods_dir, &config, &catalog_state);
 
     // 3. Initial Logs (Empty by default, showing only real game logs)
     let log_entries = Arc::new(Mutex::new(Vec::<LogEntry>::new()));
@@ -239,7 +244,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let config_clone = Arc::clone(&config);
         window.on_refresh_mods(move || {
             if let Some(w) = window_weak.upgrade() {
-                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
+                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone, &catalog_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
             }
         });
@@ -290,7 +295,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 }
             }
             if let Some(w) = window_weak.upgrade() {
-                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
+                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone, &catalog_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
             }
         });
@@ -333,7 +338,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 }
             }
             if let Some(w) = window_weak.upgrade() {
-                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
+                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone, &catalog_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
             }
         });
@@ -353,6 +358,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
             spawn_fetch_catalog(
                 window_weak.clone(),
                 Arc::clone(&catalog_clone),
+                Arc::clone(&config_clone),
                 game_dir_clone.clone(),
                 mods_dir_clone.clone(),
                 icon_cache_clone.clone(),
@@ -476,7 +482,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                             w.set_catalog_error(e.into());
                         }
                     }
-                    update_mods_ui(&w, &game_dir_bg, &mods_dir_bg, &config_bg);
+                    update_mods_ui(&w, &game_dir_bg, &mods_dir_bg, &config_bg, &catalog_bg);
                     rebuild_catalog_ui(&w, &catalog_bg, &game_dir_bg, &mods_dir_bg);
                 });
             });
@@ -672,6 +678,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         spawn_fetch_catalog(
             window.as_weak(),
             Arc::clone(&catalog_state),
+            Arc::clone(&config),
             game_dir.clone(),
             mods_dir.clone(),
             icon_cache_dir,
@@ -848,6 +855,7 @@ fn spawn_check_updates(
 fn spawn_fetch_catalog(
     window_weak: slint::Weak<AppWindow>,
     catalog_state: Arc<Mutex<CatalogState>>,
+    config: Arc<Mutex<LauncherConfig>>,
     game_dir: PathBuf,
     mods_dir: PathBuf,
     icon_cache_dir: PathBuf,
@@ -872,11 +880,13 @@ fn spawn_fetch_catalog(
             }
 
             let catalog_for_ui = Arc::clone(&catalog_state);
+            let config_for_ui = Arc::clone(&config);
             let game_dir_for_ui = game_dir.clone();
             let mods_dir_for_ui = mods_dir.clone();
             let _ = window_weak.upgrade_in_event_loop(move |w| {
                 w.set_catalog_loading(false);
                 w.set_catalog_error("".into());
+                update_mods_ui(&w, &game_dir_for_ui, &mods_dir_for_ui, &config_for_ui, &catalog_for_ui);
                 rebuild_catalog_ui(&w, &catalog_for_ui, &game_dir_for_ui, &mods_dir_for_ui);
             });
 
@@ -888,6 +898,7 @@ fn spawn_fetch_catalog(
                     let q = Arc::clone(&queue);
                     let cache_dir = icon_cache_dir.clone();
                     let state_arc = Arc::clone(&catalog_state);
+                    let cfg_arc = Arc::clone(&config);
                     let w_weak = window_weak.clone();
                     let g_dir = game_dir.clone();
                     let m_dir = mods_dir.clone();
@@ -906,9 +917,11 @@ fn spawn_fetch_catalog(
                                 loaded_in_worker += 1;
                                 if loaded_in_worker % 6 == 0 {
                                     let c = Arc::clone(&state_arc);
+                                    let cfg = Arc::clone(&cfg_arc);
                                     let gd = g_dir.clone();
                                     let md = m_dir.clone();
                                     let _ = w_weak.upgrade_in_event_loop(move |w| {
+                                        update_mods_ui(&w, &gd, &md, &cfg, &c);
                                         rebuild_catalog_ui(&w, &c, &gd, &md);
                                     });
                                 }
@@ -925,9 +938,11 @@ fn spawn_fetch_catalog(
                 }
                 if any_loaded {
                     let catalog_for_icons = Arc::clone(&catalog_state);
+                    let config_for_icons = Arc::clone(&config);
                     let game_dir_for_icons = game_dir.clone();
                     let mods_dir_for_icons = mods_dir.clone();
                     let _ = window_weak.upgrade_in_event_loop(move |w| {
+                        update_mods_ui(&w, &game_dir_for_icons, &mods_dir_for_icons, &config_for_icons, &catalog_for_icons);
                         rebuild_catalog_ui(&w, &catalog_for_icons, &game_dir_for_icons, &mods_dir_for_icons);
                     });
                 }
@@ -1164,9 +1179,12 @@ fn update_mods_ui(
     game_dir: &Path,
     mods_dir: &Path,
     config: &Arc<Mutex<LauncherConfig>>,
+    catalog_state: &Arc<Mutex<CatalogState>>,
 ) {
     let enabled_shaders = { config.lock().unwrap().enabled_shaders.clone() };
-    let mods = scan_mods(game_dir, mods_dir, &enabled_shaders);
+    let mut state = catalog_state.lock().unwrap();
+    let mods = scan_mods(game_dir, mods_dir, &enabled_shaders, &mut state);
+    drop(state);
     let active_count = mods.iter().filter(|m| m.enabled).count() as i32;
     let total_count = mods.len() as i32;
     window.set_mods(ModelRc::new(VecModel::from(mods)));
@@ -1274,7 +1292,118 @@ fn ensure_game_dirs(config: &LauncherConfig) -> (PathBuf, PathBuf, PathBuf, Path
     (game_dir, mods_dir, saves_dir, screenshots_dir)
 }
 
-fn scan_mods(game_dir: &Path, mods_dir: &Path, enabled_shaders: &[String]) -> Vec<ModInfo> {
+fn decode_icon_bytes(bytes: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
+    let img = image::load_from_memory(bytes).ok()?;
+    let resized = img.resize_to_fill(96, 96, image::imageops::FilterType::Triangle);
+    let rgba = resized.to_rgba8();
+    Some((rgba.width(), rgba.height(), rgba.into_raw()))
+}
+
+fn extract_zip_pack_icon(zip_path: &Path) -> Option<(u32, u32, Vec<u8>)> {
+    use std::io::Read;
+    let file = fs::File::open(zip_path).ok()?;
+    let mut archive = zip::ZipArchive::new(file).ok()?;
+    // Look for top-level pack.png (or icon.png) inside the resourcepack archive
+    for candidate in ["pack.png", "icon.png"] {
+        if let Ok(mut entry) = archive.by_name(candidate) {
+            if entry.size() <= 2 * 1024 * 1024 {
+                let mut buf = Vec::new();
+                if entry.read_to_end(&mut buf).is_ok() {
+                    if let Some(rgba) = decode_icon_bytes(&buf) {
+                        return Some(rgba);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn load_cached_icon_by_stem(cache_dir: &Path, stem: &str) -> Option<(u32, u32, Vec<u8>)> {
+    let safe_stem: String = stem
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+    let prefix = format!("{safe_stem}_");
+    let exact = format!("{safe_stem}.img");
+    let entries = fs::read_dir(cache_dir).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.eq_ignore_ascii_case(&exact)
+            || (name.to_lowercase().starts_with(&prefix.to_lowercase()) && name.ends_with(".img"))
+        {
+            if let Ok(bytes) = fs::read(entry.path()) {
+                if let Some(rgba) = decode_icon_bytes(&bytes) {
+                    return Some(rgba);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn resolve_installed_icon_and_name(
+    state: &mut CatalogState,
+    full_path: &Path,
+    base_name: &str,
+) -> (bool, Image, Option<String>) {
+    // 1. Match against live online catalog (gets both official icon & pretty display name)
+    let matched = state
+        .mods
+        .iter()
+        .find(|m| m.file_name.eq_ignore_ascii_case(base_name))
+        .map(|m| (m.id.clone(), m.name.clone()));
+
+    if let Some((ref mod_id, ref pretty_name)) = matched {
+        if let Some((w, h, bytes)) = state.icons.get(mod_id) {
+            let buf = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(bytes, *w, *h);
+            return (true, Image::from_rgba8(buf), Some(pretty_name.clone()));
+        }
+    }
+
+    let pretty_opt = matched.map(|(_, n)| n);
+
+    // 2. Fallback: cached local extraction (`pack.png` inside `.zip` OR cached disk icon in `cache/mod-icons`)
+    let key = base_name.to_lowercase();
+    if !state.local_icons.contains_key(&key) {
+        let ext = full_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let extracted = if ext == "zip" {
+            extract_zip_pack_icon(full_path)
+        } else {
+            None
+        }
+        .or_else(|| {
+            let stem = Path::new(base_name)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            if stem.is_empty() {
+                None
+            } else {
+                load_cached_icon_by_stem(&state.icon_cache_dir, stem)
+            }
+        });
+        state.local_icons.insert(key.clone(), extracted);
+    }
+
+    if let Some(Some((w, h, bytes))) = state.local_icons.get(&key) {
+        let buf = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(bytes, *w, *h);
+        return (true, Image::from_rgba8(buf), pretty_opt);
+    }
+
+    (false, Image::default(), pretty_opt)
+}
+
+fn scan_mods(
+    game_dir: &Path,
+    mods_dir: &Path,
+    enabled_shaders: &[String],
+    catalog_state: &mut CatalogState,
+) -> Vec<ModInfo> {
     let mut mods = Vec::new();
     if let Ok(entries) = fs::read_dir(mods_dir) {
         for entry in entries.flatten() {
@@ -1308,13 +1437,17 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path, enabled_shaders: &[String]) -> Ve
             if ext == "hmod" || ext == "hnmod" || ext == "jar" || ext == "zip" {
                 let raw_len = entry.metadata().map(|m| m.len()).unwrap_or(0);
                 let size_kb = if raw_len == 0 { 0 } else { raw_len.div_ceil(1024) as i32 };
+                let (has_icon, icon, pretty) =
+                    resolve_installed_icon_and_name(catalog_state, &p, &base_name);
                 mods.push(ModInfo {
-                    name: base_name.into(),
+                    name: pretty.unwrap_or(base_name).into(),
                     file_name: file_name.into(),
                     size_kb,
                     enabled,
                     is_shader: false,
                     is_resourcepack: false,
+                    has_icon,
+                    icon,
                 });
             }
         }
@@ -1349,13 +1482,17 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path, enabled_shaders: &[String]) -> Ve
                 let enabled = enabled_shaders
                     .iter()
                     .any(|s| s.eq_ignore_ascii_case(&file_name));
+                let (has_icon, icon, pretty) =
+                    resolve_installed_icon_and_name(catalog_state, &p, &file_name);
                 mods.push(ModInfo {
-                    name: file_name.clone().into(),
+                    name: pretty.unwrap_or_else(|| file_name.clone()).into(),
                     file_name: file_name.into(),
                     size_kb,
                     enabled,
                     is_shader: true,
                     is_resourcepack: false,
+                    has_icon,
+                    icon,
                 });
             }
         }
@@ -1392,13 +1529,17 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path, enabled_shaders: &[String]) -> Ve
                 let enabled = enabled_rps
                     .iter()
                     .any(|item| item.eq_ignore_ascii_case(&rp_key) || item.eq_ignore_ascii_case(&file_name));
+                let (has_icon, icon, pretty) =
+                    resolve_installed_icon_and_name(catalog_state, &p, &file_name);
                 mods.push(ModInfo {
-                    name: file_name.clone().into(),
+                    name: pretty.unwrap_or_else(|| file_name.clone()).into(),
                     file_name: file_name.into(),
                     size_kb,
                     enabled,
                     is_shader: false,
                     is_resourcepack: true,
+                    has_icon,
+                    icon,
                 });
             }
         }
