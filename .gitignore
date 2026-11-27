@@ -4,5 +4,6 @@
 *.pdb
 *.zip
 *.exe
+horizon-offline-launcher-linux-x86_64
 *.packing
 launcher_config.json

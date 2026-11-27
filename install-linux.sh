@@ -41,7 +41,7 @@ fi
 
 echo ""
 printf "${BOLD}Horizon Offline Launcher — установка на Linux (x86_64)${NC}\n"
-echo "Включает встроенный клиент Horizon 26.3, все ассеты (~393 МБ) и CLI-команды."
+echo "Включает встроенный клиент Horizon 26.3, все ассеты (~404 МБ) и CLI-команды."
 echo ""
 
 TMP_DIR="$(mktemp -d)"

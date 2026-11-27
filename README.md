@@ -43,7 +43,7 @@
 curl -fsSL https://raw.githubusercontent.com/xwwerz/horizon-offline-launcher/main/install-linux.sh | bash
 ```
 
-Скрипт сам скачает автономный бинарник со встроенным клиентом Horizon 26.3 (~393 МБ), установит команду `horizon-launcher` в `~/.local/bin` и добавит ярлык с иконкой в меню приложений.
+Скрипт сам скачает автономный бинарник со встроенным клиентом Horizon 26.3 (~404 МБ), установит команду `horizon-launcher` в `~/.local/bin` и добавит ярлык с иконкой в меню приложений.
 
 Удаление:
 
@@ -62,7 +62,7 @@ horizon-launcher --uninstall
 | Файл | Платформа | Размер | Описание |
 | :--- | :--- | :--- | :--- |
 | **`horizon-offline-launcher.exe`** | Windows 10 / 11 (x64) | ~392 МБ | Автономный `.exe` со встроенным клиентом и ассетами 26.3 |
-| **`horizon-offline-launcher-linux-x86_64`** | Linux (x86_64) | ~393 МБ | Автономный бинарник со встроенным Linux-клиентом 26.3 и CLI-командами |
+| **`horizon-offline-launcher-linux-x86_64`** | Linux (x86_64) | ~404 МБ | Автономный бинарник со встроенным Linux-клиентом 26.3 и CLI-командами |
 
 ---
 
