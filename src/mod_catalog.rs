@@ -170,7 +170,13 @@ pub fn fetch_icon_cached(
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
         .collect();
-    let cached_path = cache_dir.join(format!("{safe_id}.img"));
+    // Include lightweight FNV-1a hash of icon_url so `?v=2` updates auto-bust stale cached icons
+    let mut url_hash: u32 = 2166136261;
+    for b in icon_url.as_bytes() {
+        url_hash ^= *b as u32;
+        url_hash = url_hash.wrapping_mul(16777619);
+    }
+    let cached_path = cache_dir.join(format!("{safe_id}_{url_hash:08x}.img"));
 
     let raw_bytes = if cached_path.exists() {
         fs::read(&cached_path).ok()
