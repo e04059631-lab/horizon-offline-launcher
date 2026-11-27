@@ -5,6 +5,7 @@ mod client_unpacker;
 mod config;
 mod game_process;
 mod mod_catalog;
+mod shader_combiner;
 mod ui_bridge;
 
 use slint::ComponentHandle;

@@ -25,6 +25,8 @@ pub struct LauncherConfig {
     pub dark_mode: bool,
     #[serde(default = "default_mods_repo_url")]
     pub mods_repo_url: String,
+    #[serde(default)]
+    pub enabled_shaders: Vec<String>,
 }
 
 impl Default for LauncherConfig {
@@ -43,6 +45,7 @@ impl Default for LauncherConfig {
             recent_nicknames: Vec::new(),
             dark_mode: false,
             mods_repo_url: default_mods_repo_url(),
+            enabled_shaders: Vec::new(),
         }
     }
 }

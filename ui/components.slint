@@ -60,6 +60,7 @@ export component GlassButton inherits Rectangle {
     callback clicked;
 
     height: btn-height;
+    min-width: root.text == "" ? root.btn-height : 0px;
     border-radius: self.height / 2;
     opacity: enabled ? 1.0 : 0.45;
     background: kind == "primary"
@@ -72,9 +73,9 @@ export component GlassButton inherits Rectangle {
 
     HorizontalLayout {
         alignment: center;
-        spacing: 8px;
-        padding-left: root.btn-height > 50px ? 26px : 18px;
-        padding-right: root.btn-height > 50px ? 26px : 18px;
+        spacing: (root.icon != "" && root.text != "") ? 8px : 0px;
+        padding-left: root.text == "" ? 0px : (root.btn-height > 50px ? 26px : 16px);
+        padding-right: root.text == "" ? 0px : (root.btn-height > 50px ? 26px : 16px);
         padding-top: ta.pressed ? 1.5px : 0px;
 
         if root.icon != "": Icon {
@@ -84,7 +85,7 @@ export component GlassButton inherits Rectangle {
             animate color { duration: 150ms; }
         }
 
-        Text {
+        if root.text != "": Text {
             text: root.text;
             font-size: root.btn-height > 50px ? 16.5px : 13.5px;
             font-weight: root.kind == "secondary" ? 600 : 700;

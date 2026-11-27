@@ -725,6 +725,8 @@ export component AppWindow inherits Window {
 
                                 VerticalLayout {
                                     spacing: 8px;
+                                    padding-top: 2px;
+                                    padding-bottom: 10px;
                                     padding-right: 6px;
 
                                     for item in root.mods: Rectangle {
@@ -961,15 +963,18 @@ export component AppWindow inherits Window {
 
                                 VerticalLayout {
                                     spacing: 10px;
-                                    padding-right: 6px;
+                                    padding-top: 2px;
+                                    padding-bottom: 10px;
+                                    padding-right: 8px;
 
                                     for cmod in root.catalog-mods: Rectangle {
-                                        min-height: 82px;
+                                        height: Math.max(92px, card-content.preferred-height);
                                         border-radius: 20px;
                                         background: Theme.inner-tile;
+                                        clip: true;
                                         animate background { duration: 150ms; }
 
-                                        HorizontalLayout {
+                                        card-content := HorizontalLayout {
                                             padding: 12px;
                                             spacing: 12px;
 
@@ -998,18 +1003,19 @@ export component AppWindow inherits Window {
                                                 }
                                             }
 
-                                            // Name + Description
+                                            // Name + Description + Metadata
                                             VerticalLayout {
                                                 horizontal-stretch: 1;
+                                                preferred-width: 0px;
                                                 alignment: center;
-                                                spacing: 3px;
+                                                spacing: 4px;
 
                                                 HorizontalLayout {
                                                     spacing: 6px;
                                                     alignment: start;
                                                     Text {
                                                         text: cmod.name;
-                                                        font-size: 14px;
+                                                        font-size: 13.5px;
                                                         font-weight: 700;
                                                         color: Theme.text-primary;
                                                         overflow: elide;
@@ -1039,10 +1045,11 @@ export component AppWindow inherits Window {
                                                 }
                                             }
 
-                                            // Download / Installed Action
+                                            // Download / Installed Action (consistent width across all cards)
                                             VerticalLayout {
                                                 alignment: center;
                                                 GlassButton {
+                                                    min-width: 114px;
                                                     btn-height: 36px;
                                                     kind: cmod.installed ? "secondary" : "primary";
                                                     icon: cmod.installed ? "\u{e86c}" : (cmod.downloading ? "\u{e86a}" : "\u{e2c4}");

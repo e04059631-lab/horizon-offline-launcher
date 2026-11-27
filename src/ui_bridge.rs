@@ -2,6 +2,7 @@ use crate::client_unpacker;
 use crate::config::LauncherConfig;
 use crate::game_process::GameProcess;
 use crate::mod_catalog::{self, RemoteMod};
+use crate::shader_combiner;
 use slint::{ComponentHandle, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -70,8 +71,35 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         window.set_recent_nicknames(ModelRc::new(VecModel::from(recent)));
     }
 
-    // 2. Scan Local Mods & Shader Packs
-    update_mods_ui(window, &game_dir, &mods_dir);
+    // 2. Initialize enabled shaders (migrate from horizon-graphics.txt if empty) & Scan Local Mods
+    {
+        let mut cfg = config.lock().unwrap();
+        let shader_dir = game_dir.join("shaderpacks");
+        if cfg.enabled_shaders.is_empty() {
+            let picked = read_picked_shader_pack(&game_dir);
+            if !picked.is_empty()
+                && !picked.starts_with('.')
+                && !picked.starts_with("_verify_")
+                && shader_dir.join(&picked).is_file()
+            {
+                cfg.enabled_shaders.push(picked);
+                cfg.save();
+            }
+        } else {
+            let before = cfg.enabled_shaders.len();
+            cfg.enabled_shaders.retain(|s| {
+                !s.starts_with('.')
+                    && !s.starts_with("_verify_")
+                    && shader_dir.join(s).is_file()
+            });
+            if cfg.enabled_shaders.len() != before {
+                cfg.save();
+            }
+        }
+        let picked = shader_combiner::sync_combined_shaders(&game_dir, &cfg.enabled_shaders);
+        write_picked_shader_pack(&game_dir, &picked);
+    }
+    update_mods_ui(window, &game_dir, &mods_dir, &config);
 
     // 3. Initial Logs (Empty by default, showing only real game logs)
     let log_entries = Arc::new(Mutex::new(Vec::<LogEntry>::new()));
@@ -195,9 +223,10 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let game_dir_clone = game_dir.clone();
         let mods_dir_clone = mods_dir.clone();
         let catalog_clone = Arc::clone(&catalog_state);
+        let config_clone = Arc::clone(&config);
         window.on_refresh_mods(move || {
             if let Some(w) = window_weak.upgrade() {
-                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone);
+                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
             }
         });
@@ -207,16 +236,25 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let game_dir_clone = game_dir.clone();
         let mods_dir_clone = mods_dir.clone();
         let catalog_clone = Arc::clone(&catalog_state);
+        let config_clone = Arc::clone(&config);
         window.on_toggle_mod(move |file_name| {
             let file_name_str = file_name.to_string();
             let rp_path = game_dir_clone.join("resourcepacks").join(&file_name_str);
             if is_shader_file(&file_name_str) {
-                let current_picked = read_picked_shader_pack(&game_dir_clone);
-                if current_picked.eq_ignore_ascii_case(&file_name_str) {
-                    write_picked_shader_pack(&game_dir_clone, "");
+                let mut cfg = config_clone.lock().unwrap();
+                if let Some(pos) = cfg
+                    .enabled_shaders
+                    .iter()
+                    .position(|s| s.eq_ignore_ascii_case(&file_name_str))
+                {
+                    cfg.enabled_shaders.remove(pos);
                 } else {
-                    write_picked_shader_pack(&game_dir_clone, &file_name_str);
+                    cfg.enabled_shaders.push(file_name_str.clone());
                 }
+                let picked =
+                    shader_combiner::sync_combined_shaders(&game_dir_clone, &cfg.enabled_shaders);
+                write_picked_shader_pack(&game_dir_clone, &picked);
+                cfg.save();
             } else if rp_path.is_file() {
                 let currently_on = is_resource_pack_enabled(&game_dir_clone, &file_name_str);
                 set_resource_pack_enabled(&game_dir_clone, &file_name_str, !currently_on);
@@ -232,7 +270,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 }
             }
             if let Some(w) = window_weak.upgrade() {
-                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone);
+                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
             }
         });
@@ -242,6 +280,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let game_dir_clone = game_dir.clone();
         let mods_dir_clone = mods_dir.clone();
         let catalog_clone = Arc::clone(&catalog_state);
+        let config_clone = Arc::clone(&config);
         window.on_delete_mod(move |file_name| {
             let file_name_str = file_name.to_string();
             if let Some(clean) = Path::new(&file_name_str).file_name() {
@@ -251,9 +290,15 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                     if target_path.is_file() {
                         let _ = fs::remove_file(&target_path);
                     }
-                    if read_picked_shader_pack(&game_dir_clone).eq_ignore_ascii_case(&file_name_str) {
-                        write_picked_shader_pack(&game_dir_clone, "");
-                    }
+                    let mut cfg = config_clone.lock().unwrap();
+                    cfg.enabled_shaders
+                        .retain(|s| !s.eq_ignore_ascii_case(&file_name_str));
+                    let picked = shader_combiner::sync_combined_shaders(
+                        &game_dir_clone,
+                        &cfg.enabled_shaders,
+                    );
+                    write_picked_shader_pack(&game_dir_clone, &picked);
+                    cfg.save();
                 } else if rp_path.is_file() {
                     let _ = fs::remove_file(&rp_path);
                     set_resource_pack_enabled(&game_dir_clone, &file_name_str, false);
@@ -265,7 +310,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 }
             }
             if let Some(w) = window_weak.upgrade() {
-                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone);
+                update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
             }
         });
@@ -325,6 +370,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
     {
         let window_weak = window.as_weak();
         let catalog_clone = Arc::clone(&catalog_state);
+        let config_clone = Arc::clone(&config);
         let game_dir_clone = game_dir.clone();
         let mods_dir_clone = mods_dir.clone();
 
@@ -353,6 +399,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
 
             let window_weak_bg = window_weak.clone();
             let catalog_bg = Arc::clone(&catalog_clone);
+            let config_bg = Arc::clone(&config_clone);
             let game_dir_bg = game_dir_clone.clone();
             let mods_dir_bg = mods_dir_clone.clone();
 
@@ -372,7 +419,20 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 );
                 if res.is_ok() {
                     if is_shader {
-                        write_picked_shader_pack(&game_dir_bg, &remote_mod.file_name);
+                        let mut cfg = config_bg.lock().unwrap();
+                        if !cfg
+                            .enabled_shaders
+                            .iter()
+                            .any(|s| s.eq_ignore_ascii_case(&remote_mod.file_name))
+                        {
+                            cfg.enabled_shaders.push(remote_mod.file_name.clone());
+                        }
+                        let picked = shader_combiner::sync_combined_shaders(
+                            &game_dir_bg,
+                            &cfg.enabled_shaders,
+                        );
+                        write_picked_shader_pack(&game_dir_bg, &picked);
+                        cfg.save();
                     } else if is_rp {
                         set_resource_pack_enabled(&game_dir_bg, &remote_mod.file_name, true);
                     }
@@ -391,7 +451,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                             w.set_catalog_error(e.into());
                         }
                     }
-                    update_mods_ui(&w, &game_dir_bg, &mods_dir_bg);
+                    update_mods_ui(&w, &game_dir_bg, &mods_dir_bg, &config_bg);
                     rebuild_catalog_ui(&w, &catalog_bg, &game_dir_bg, &mods_dir_bg);
                 });
             });
@@ -834,6 +894,9 @@ fn installed_mod_base_names(game_dir: &Path, mods_dir: &Path) -> HashSet<String>
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_string();
+                if file_name.starts_with('.') || file_name.starts_with("_verify_") {
+                    continue;
+                }
                 let base = file_name.strip_suffix(".disabled").unwrap_or(&file_name);
                 set.insert(base.to_lowercase());
             }
@@ -842,8 +905,14 @@ fn installed_mod_base_names(game_dir: &Path, mods_dir: &Path) -> HashSet<String>
     set
 }
 
-fn update_mods_ui(window: &AppWindow, game_dir: &Path, mods_dir: &Path) {
-    let mods = scan_mods(game_dir, mods_dir);
+fn update_mods_ui(
+    window: &AppWindow,
+    game_dir: &Path,
+    mods_dir: &Path,
+    config: &Arc<Mutex<LauncherConfig>>,
+) {
+    let enabled_shaders = { config.lock().unwrap().enabled_shaders.clone() };
+    let mods = scan_mods(game_dir, mods_dir, &enabled_shaders);
     let active_count = mods.iter().filter(|m| m.enabled).count() as i32;
     let total_count = mods.len() as i32;
     window.set_mods(ModelRc::new(VecModel::from(mods)));
@@ -951,7 +1020,7 @@ fn ensure_game_dirs(config: &LauncherConfig) -> (PathBuf, PathBuf, PathBuf, Path
     (game_dir, mods_dir, saves_dir, screenshots_dir)
 }
 
-fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
+fn scan_mods(game_dir: &Path, mods_dir: &Path, enabled_shaders: &[String]) -> Vec<ModInfo> {
     let mut mods = Vec::new();
     if let Ok(entries) = fs::read_dir(mods_dir) {
         for entry in entries.flatten() {
@@ -964,6 +1033,9 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
+            if file_name.starts_with('.') || file_name.starts_with("_verify_") {
+                continue;
+            }
 
             let (enabled, base_name) = if let Some(stripped) = file_name.strip_suffix(".disabled") {
                 (false, stripped.to_string())
@@ -994,7 +1066,6 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
 
     // Scan Horizon native shader packs (.hshader) in <game_dir>/shaderpacks/
     let shader_dir = game_dir.join("shaderpacks");
-    let picked_shader = read_picked_shader_pack(game_dir);
     if let Ok(entries) = fs::read_dir(&shader_dir) {
         for entry in entries.flatten() {
             let p = entry.path();
@@ -1006,6 +1077,9 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
+            if file_name.starts_with('.') || file_name.starts_with("_verify_") {
+                continue;
+            }
 
             let ext = p
                 .extension()
@@ -1016,7 +1090,9 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
             if ext == "hshader" {
                 let raw_len = entry.metadata().map(|m| m.len()).unwrap_or(0);
                 let size_kb = if raw_len == 0 { 0 } else { raw_len.div_ceil(1024) as i32 };
-                let enabled = picked_shader.eq_ignore_ascii_case(&file_name);
+                let enabled = enabled_shaders
+                    .iter()
+                    .any(|s| s.eq_ignore_ascii_case(&file_name));
                 mods.push(ModInfo {
                     name: file_name.clone().into(),
                     file_name: file_name.into(),
@@ -1043,6 +1119,9 @@ fn scan_mods(game_dir: &Path, mods_dir: &Path) -> Vec<ModInfo> {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
+            if file_name.starts_with('.') || file_name.starts_with("_verify_") {
+                continue;
+            }
 
             let ext = p
                 .extension()
