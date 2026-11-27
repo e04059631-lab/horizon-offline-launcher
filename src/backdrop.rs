@@ -457,8 +457,61 @@ pub fn pick_image_file() -> Option<PathBuf> {
 }
 
 #[cfg(not(windows))]
-#[allow(dead_code)]
 pub fn pick_image_file() -> Option<PathBuf> {
+    use std::process::Command;
+
+    // 1. GNOME / GTK / generic Wayland & X11: zenity
+    if let Ok(out) = Command::new("zenity")
+        .args([
+            "--file-selection",
+            "--title=Выберите фоновое изображение",
+            "--file-filter=Изображения (PNG, JPG, WebP) | *.png *.jpg *.jpeg *.webp *.PNG *.JPG *.JPEG *.WEBP",
+        ])
+        .output()
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !s.is_empty() {
+                return Some(PathBuf::from(s));
+            }
+        }
+        return None;
+    }
+
+    // 2. KDE Plasma: kdialog
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    if let Ok(out) = Command::new("kdialog")
+        .arg("--getopenfilename")
+        .arg(&home)
+        .arg("*.png *.jpg *.jpeg *.webp|Изображения")
+        .output()
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !s.is_empty() {
+                return Some(PathBuf::from(s));
+            }
+        }
+        return None;
+    }
+
+    // 3. Lightweight fallback: yad
+    if let Ok(out) = Command::new("yad")
+        .args([
+            "--file",
+            "--title=Выберите фоновое изображение",
+            "--file-filter=Изображения | *.png *.jpg *.jpeg *.webp",
+        ])
+        .output()
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !s.is_empty() {
+                return Some(PathBuf::from(s));
+            }
+        }
+    }
+
     None
 }
 

@@ -1,6 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod backdrop;
+mod cli;
 mod client_unpacker;
 mod config;
 mod engine_mods;
@@ -41,6 +42,10 @@ mod win_timer {
 }
 
 fn main() -> Result<(), slint::PlatformError> {
+    if let cli::CliAction::Exit(code) = cli::handle_args() {
+        std::process::exit(code);
+    }
+
     #[cfg(windows)]
     let _high_res_timer = win_timer::HighResTimerGuard::enable();
 

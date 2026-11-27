@@ -1,9 +1,10 @@
 [Desktop Entry]
-Name=Horizon Launcher
-Comment=Horizon Launcher - Minecraft Java Edition 26.3
+Name=Horizon Offline Launcher
+Comment=Автономный оффлайн-лаунчер для Minecraft Horizon 26.3
 Exec=horizon-launcher
 Icon=horizon-launcher
 Terminal=false
 Type=Application
 Categories=Game;
-StartupWMClass=horizon-launcher
+Keywords=minecraft;horizon;launcher;game;
+StartupWMClass=horizon-offline-launcher
