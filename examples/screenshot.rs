@@ -31,7 +31,8 @@ fn main() {
     window.set_size(slint::PhysicalSize::new(w, h));
 
     let app = AppWindow::new().unwrap();
-    backdrop::apply(&app);
+    backdrop::apply_preset(&app, "abstract", None);
+    app.set_backdrop_index(0);
     app.set_nickname("wwerz".into());
     app.set_client_ready(true);
     app.set_has_embedded_payload(true);
@@ -122,16 +123,17 @@ fn main() {
     ])));
     app.show().unwrap();
 
-    let shots: [(&str, i32, i32, bool); 6] = [
-        ("v2_dark_home", 0, 0, true),
-        ("v2_light_home", 0, 0, false),
-        ("v2_dark_mods_catalog", 1, 0, true),
-        ("v2_dark_mods_installed", 1, 1, true),
-        ("v2_light_mods_catalog", 1, 0, false),
-        ("v2_dark_settings", 2, 0, true),
+    let shots: [(&str, i32, i32, bool, &str); 5] = [
+        ("v3_home_abstract", 0, 0, true, "abstract"),
+        ("v3_home_aurora", 0, 0, true, "aurora"),
+        ("v3_home_cherry", 0, 0, true, "cherry"),
+        ("v3_mods_abstract", 1, 0, true, "abstract"),
+        ("v3_settings_picker", 2, 0, true, "abstract"),
     ];
 
-    for (name, tab, mods_view, dark) in shots {
+    for (name, tab, mods_view, dark, bg) in shots {
+        backdrop::apply_preset(&app, bg, None);
+        app.set_backdrop_index(backdrop::preset_to_index(bg));
         app.set_dark_mode(dark);
         app.global::<Theme>().set_dark(dark);
         app.set_active_tab(tab);

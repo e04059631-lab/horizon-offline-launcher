@@ -6,6 +6,10 @@ pub fn default_mods_repo_url() -> String {
     "https://raw.githubusercontent.com/e04059631-lab/horizon-mods/main/catalog.json".to_string()
 }
 
+pub fn default_backdrop_preset() -> String {
+    "abstract".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherConfig {
     pub username: String,
@@ -27,6 +31,10 @@ pub struct LauncherConfig {
     pub mods_repo_url: String,
     #[serde(default)]
     pub enabled_shaders: Vec<String>,
+    #[serde(default = "default_backdrop_preset")]
+    pub backdrop_preset: String,
+    #[serde(default)]
+    pub custom_backdrop_path: Option<String>,
 }
 
 impl Default for LauncherConfig {
@@ -46,6 +54,8 @@ impl Default for LauncherConfig {
             dark_mode: false,
             mods_repo_url: default_mods_repo_url(),
             enabled_shaders: Vec::new(),
+            backdrop_preset: default_backdrop_preset(),
+            custom_backdrop_path: None,
         }
     }
 }

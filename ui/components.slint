@@ -1062,3 +1062,72 @@ export component SettingRow inherits Rectangle {
         }
     }
 }
+
+// Visual 16:9 wallpaper preview tile for Settings
+export component WallpaperTile inherits Rectangle {
+    in property <string> label;
+    in property <image> preview;
+    in property <bool> has-preview: true;
+    in property <bool> selected: false;
+    in property <string> fallback-icon: "\u{e43e}";
+    callback clicked;
+
+    height: 70px;
+    border-radius: 14px;
+    clip: true;
+    background: ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile;
+    animate background { duration: 140ms; }
+
+    if root.has-preview: Image {
+        width: 100%;
+        height: 100%;
+        source: root.preview;
+        image-fit: cover;
+    }
+
+    if !root.has-preview: VerticalLayout {
+        alignment: center;
+        padding-bottom: 14px;
+        Icon {
+            text: root.fallback-icon;
+            font-size: 22px;
+            color: root.selected ? Theme.accent : Theme.text-secondary;
+        }
+    }
+
+    // Soft bottom label scrim
+    Rectangle {
+        y: parent.height - 26px;
+        width: parent.width;
+        height: 26px;
+        background: root.has-preview
+            ? @linear-gradient(180deg, #00000000 0%, #070A12CC 100%)
+            : transparent;
+    }
+
+    Text {
+        x: 6px;
+        y: parent.height - 21px;
+        width: parent.width - 12px;
+        text: root.label;
+        font-size: 11px;
+        font-weight: 600;
+        color: root.has-preview ? #FFFFFF : Theme.text-primary;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+
+    // Active orange selection border
+    Rectangle {
+        border-radius: root.border-radius;
+        border-width: root.selected ? 2.5px : (ta.has-hover ? 1px : 0px);
+        border-color: root.selected ? Theme.accent : Theme.field-border;
+        background: transparent;
+        animate border-width, border-color { duration: 150ms; }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

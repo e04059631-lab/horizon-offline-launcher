@@ -13,6 +13,7 @@ import {
     Slider,
     Field,
     SettingRow,
+    WallpaperTile,
 } from "components.slint";
 
 import "../src/GoogleSans-Regular.ttf";
@@ -83,6 +84,7 @@ export component AppWindow inherits Window {
     in-out property <bool> fullscreen: false;
     in-out property <bool> creative-mode: false;
     in-out property <bool> dark-mode: false;
+    in-out property <int> backdrop-index: 0; // 0 abstract, 1 aurora, 2 cherry, 3 sunset, 4 custom
     in-out property <string> server-address: "";
     in-out property <bool> is-playing: false;
     in-out property <string> mods-dir-path: "";
@@ -131,6 +133,8 @@ export component AppWindow inherits Window {
     callback filter-catalog(int);
     callback download-mod(string);
     callback save-settings();
+    callback select-backdrop(int);
+    callback pick-custom-backdrop();
     callback set-nickname(string);
     callback clear-log();
     callback repair-client();
@@ -1007,6 +1011,78 @@ export component AppWindow inherits Window {
                             VerticalLayout {
                                 padding: 26px;
                                 spacing: 18px;
+
+                                // Section 0: Wallpaper & Appearance
+                                VerticalLayout {
+                                    spacing: 10px;
+
+                                    HorizontalLayout {
+                                        Text {
+                                            text: "Фон лаунчера";
+                                            font-size: 17px;
+                                            font-weight: 700;
+                                            color: Theme.text-primary;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        GlassButton {
+                                            btn-height: 32px;
+                                            icon: "\u{e43e}";
+                                            text: "Выбрать файл…";
+                                            clicked => { root.pick-custom-backdrop(); }
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        spacing: 8px;
+
+                                        WallpaperTile {
+                                            horizontal-stretch: 1;
+                                            label: "Стекло";
+                                            preview: @image-url("../assets/thumb-abstract.jpg");
+                                            selected: root.backdrop-index == 0;
+                                            clicked => { root.select-backdrop(0); }
+                                        }
+                                        WallpaperTile {
+                                            horizontal-stretch: 1;
+                                            label: "Сияние";
+                                            preview: @image-url("../assets/thumb-aurora.jpg");
+                                            selected: root.backdrop-index == 1;
+                                            clicked => { root.select-backdrop(1); }
+                                        }
+                                        WallpaperTile {
+                                            horizontal-stretch: 1;
+                                            label: "Сакура";
+                                            preview: @image-url("../assets/thumb-cherry.jpg");
+                                            selected: root.backdrop-index == 2;
+                                            clicked => { root.select-backdrop(2); }
+                                        }
+                                        WallpaperTile {
+                                            horizontal-stretch: 1;
+                                            label: "Закат";
+                                            preview: @image-url("../assets/thumb-sunset.jpg");
+                                            selected: root.backdrop-index == 3;
+                                            clicked => { root.select-backdrop(3); }
+                                        }
+                                        WallpaperTile {
+                                            horizontal-stretch: 1;
+                                            label: "Свой фон";
+                                            preview: Backdrop.custom-thumb;
+                                            has-preview: Backdrop.has-custom-thumb;
+                                            selected: root.backdrop-index == 4;
+                                            clicked => {
+                                                if Backdrop.has-custom-thumb && root.backdrop-index != 4 {
+                                                    root.select-backdrop(4);
+                                                } else {
+                                                    root.pick-custom-backdrop();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Soft divider
+                                Rectangle { height: 1px; background: Theme.fill; }
 
                                 // Section 1: Performance
                                 VerticalLayout {

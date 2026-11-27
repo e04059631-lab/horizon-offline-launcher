@@ -27,9 +27,14 @@ struct CatalogState {
 }
 
 pub fn setup_ui_bridge(window: &AppWindow) {
-    crate::backdrop::apply(window);
-
     let config = Arc::new(Mutex::new(LauncherConfig::load()));
+    {
+        let cfg = config.lock().unwrap();
+        let custom_p = cfg.custom_backdrop_path.as_deref().map(Path::new);
+        crate::backdrop::apply_preset(window, &cfg.backdrop_preset, custom_p);
+        crate::backdrop::apply_custom_thumb(window, custom_p);
+        window.set_backdrop_index(crate::backdrop::preset_to_index(&cfg.backdrop_preset));
+    }
     let game = Arc::new(GameProcess::new());
     let catalog_state = Arc::new(Mutex::new(CatalogState::default()));
 
@@ -471,7 +476,65 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         });
     }
 
-    // 8. Callbacks: Settings & Nickname Save
+    // 8. Callbacks: Settings, Wallpaper Switcher & Nickname Save
+    {
+        let window_weak = window.as_weak();
+        let config_clone = Arc::clone(&config);
+        window.on_select_backdrop(move |idx| {
+            let preset_name = crate::backdrop::index_to_preset(idx).to_string();
+            let custom_path = {
+                let mut cfg = config_clone.lock().unwrap();
+                cfg.backdrop_preset = preset_name.clone();
+                cfg.save();
+                cfg.custom_backdrop_path.clone()
+            };
+            if let Some(w) = window_weak.upgrade() {
+                w.set_backdrop_index(crate::backdrop::preset_to_index(&preset_name));
+                crate::backdrop::apply_preset(
+                    &w,
+                    &preset_name,
+                    custom_path.as_deref().map(Path::new),
+                );
+            }
+        });
+    }
+    {
+        let window_weak = window.as_weak();
+        let config_clone = Arc::clone(&config);
+        window.on_pick_custom_backdrop(move || {
+            let w_weak = window_weak.clone();
+            let cfg_arc = Arc::clone(&config_clone);
+            thread::spawn(move || {
+                let Some(picked) = crate::backdrop::pick_image_file() else {
+                    return;
+                };
+                let dest_dir = LauncherConfig::appdata_base_dir();
+                match crate::backdrop::import_custom_backdrop(&picked, &dest_dir) {
+                    Ok(saved) => {
+                        let saved_str = saved.to_string_lossy().to_string();
+                        {
+                            let mut cfg = cfg_arc.lock().unwrap();
+                            cfg.backdrop_preset = "custom".to_string();
+                            cfg.custom_backdrop_path = Some(saved_str);
+                            cfg.save();
+                        }
+                        let _ = w_weak.upgrade_in_event_loop(move |w| {
+                            w.set_backdrop_index(4);
+                            crate::backdrop::apply_custom_thumb(&w, Some(&saved));
+                            crate::backdrop::apply_preset(&w, "custom", Some(&saved));
+                        });
+                    }
+                    Err(err) => {
+                        let _ = w_weak.upgrade_in_event_loop(move |w| {
+                            w.set_status_text(err.into());
+                            w.set_status_is_error(true);
+                            w.set_has_status_message(true);
+                        });
+                    }
+                }
+            });
+        });
+    }
     {
         let window_weak = window.as_weak();
         let config_clone = Arc::clone(&config);
