@@ -276,9 +276,10 @@ mod tests {
         let url = "https://raw.githubusercontent.com/xwwerz/horizon-mods/main/catalog.json";
         let (resolved, mods) = fetch_catalog(url).expect("catalog fetch should succeed over HTTPS");
         assert_eq!(resolved, url);
-        assert!(mods.len() >= 56, "catalog should contain all 56 client-side mods, got {}", mods.len());
+        assert!(mods.len() >= 27, "catalog should contain all 27 WGSL shaders, got {}", mods.len());
         assert!(mods.iter().any(|m| m.id == "motion-blur"));
         assert!(!mods.iter().any(|m| m.id == "ruby-arsenal"), "content .hmod mods should be removed");
+        assert!(!mods.iter().any(|m| m.id == "low-fire"), "broken self-made resourcepacks should be removed");
         let tmp_cache = std::env::temp_dir().join("horizon_test_icon_cache");
         let icon = fetch_icon_cached(&tmp_cache, &mods[0].id, &mods[0].icon_url);
         assert!(icon.is_some(), "icon download and decode should succeed");
