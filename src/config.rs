@@ -35,6 +35,8 @@ pub struct LauncherConfig {
     pub backdrop_preset: String,
     #[serde(default)]
     pub custom_backdrop_path: Option<String>,
+    #[serde(default)]
+    pub legacy_engine_mods_cleaned: bool,
 }
 
 impl Default for LauncherConfig {
@@ -56,6 +58,7 @@ impl Default for LauncherConfig {
             enabled_shaders: Vec::new(),
             backdrop_preset: default_backdrop_preset(),
             custom_backdrop_path: None,
+            legacy_engine_mods_cleaned: true,
         }
     }
 }

@@ -87,6 +87,53 @@ pub fn set_hmod_enabled(game_dir: &Path, hmod_path: &Path, enabled: bool) {
     upsert_kv_file(&game_dir.join("horizon-mods.txt"), &[(&key, val)]);
 }
 
+/// One-time cleanup that disables all 20 legacy built-in engine/PvP mod flags
+/// left behind in `horizon-extras.txt` and `options.txt` from earlier launcher versions.
+pub fn disable_legacy_engine_mods(game_dir: &Path) {
+    let extras_path = game_dir.join("horizon-extras.txt");
+    if extras_path.exists() {
+        upsert_kv_file(
+            &extras_path,
+            &[
+                ("fullbright", "false"),
+                ("dynamicLights", "false"),
+                ("zoom", "false"),
+                ("zoomSmooth", "false"),
+                ("fps", "false"),
+                ("fpsLows", "false"),
+                ("keystrokes", "false"),
+                ("keystrokesCps", "false"),
+                ("minimap", "false"),
+                ("minimapRotate", "false"),
+                ("autoReconnect", "false"),
+                ("ownNameTag", "false"),
+                ("mouseTweaks", "false"),
+                ("mouseTweaksWheel", "false"),
+                ("sort", "false"),
+                ("discordPresence", "false"),
+                ("splitscreen", "false"),
+            ],
+        );
+    }
+
+    let options_path = game_dir.join("options.txt");
+    if options_path.exists() {
+        upsert_kv_file(
+            &options_path,
+            &[
+                ("toggleSprint", "false"),
+                ("toggleCrouch", "false"),
+                ("damageTiltStrength", "1.0"),
+                ("fovEffectScale", "1.0"),
+                ("bobView", "true"),
+                ("highContrastBlockOutline", "false"),
+                ("screenEffectScale", "1.0"),
+                ("hideLightningFlashes", "false"),
+            ],
+        );
+    }
+}
+
 /// Removes `mod.<id>` line from `<game_dir>/horizon-mods.txt` when deleting a `.hmod`.
 pub fn remove_hmod_entry(game_dir: &Path, hmod_path: &Path) {
     let Some(mod_id) = read_hmod_manifest_id(hmod_path) else {

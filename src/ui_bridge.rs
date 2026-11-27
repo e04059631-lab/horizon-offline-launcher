@@ -79,9 +79,14 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         window.set_recent_nicknames(ModelRc::new(VecModel::from(recent)));
     }
 
-    // 2. Initialize enabled shaders (migrate from horizon-graphics.txt if empty) & Scan Local Mods
+    // 2. One-time cleanup of legacy removed PvP/engine mod flags + Initialize enabled shaders
     {
         let mut cfg = config.lock().unwrap();
+        if !cfg.legacy_engine_mods_cleaned {
+            engine_mods::disable_legacy_engine_mods(&game_dir);
+            cfg.legacy_engine_mods_cleaned = true;
+            cfg.save();
+        }
         let shader_dir = game_dir.join("shaderpacks");
         if cfg.enabled_shaders.is_empty() {
             let picked = read_picked_shader_pack(&game_dir);
