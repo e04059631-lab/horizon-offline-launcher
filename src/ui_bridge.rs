@@ -335,6 +335,10 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                         }
                         let _ = fs::remove_file(&target_path);
                     }
+                    let disabled_path = mods_dir_clone.join(format!("{}.disabled", clean.to_string_lossy()));
+                    if disabled_path.is_file() {
+                        let _ = fs::remove_file(&disabled_path);
+                    }
                 }
             }
             if let Some(w) = window_weak.upgrade() {

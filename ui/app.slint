@@ -943,14 +943,37 @@ export component AppWindow inherits Window {
 
                                         VerticalLayout {
                                             alignment: center;
-                                            GlassButton {
-                                                min-width: 118px;
-                                                btn-height: 36px;
-                                                kind: cmod.installed ? "secondary" : "primary";
-                                                icon: cmod.installed ? "\u{e86c}" : (cmod.downloading ? "\u{e86a}" : "\u{e2c4}");
-                                                text: cmod.installed ? "Установлен" : (cmod.downloading ? "..." : "Скачать");
-                                                enabled: !cmod.installed && !cmod.downloading;
-                                                clicked => { root.download-mod(cmod.id); }
+                                            HorizontalLayout {
+                                                spacing: 8px;
+                                                GlassButton {
+                                                    min-width: 118px;
+                                                    btn-height: 36px;
+                                                    kind: cmod.installed ? "secondary" : "primary";
+                                                    icon: cmod.installed ? "\u{e86c}" : (cmod.downloading ? "\u{e86a}" : "\u{e2c4}");
+                                                    text: cmod.installed ? "Установлен" : (cmod.downloading ? "..." : "Скачать");
+                                                    enabled: !cmod.installed && !cmod.downloading;
+                                                    clicked => { root.download-mod(cmod.id); }
+                                                }
+                                                if cmod.installed: Rectangle {
+                                                    width: 36px;
+                                                    height: 36px;
+                                                    border-radius: 18px;
+                                                    background: cat-del-ta.has-hover ? #FF3B3030 : Theme.fill;
+                                                    border-width: 1px;
+                                                    border-color: cat-del-ta.has-hover ? #FF3B3060 : Theme.glass-edge;
+                                                    animate background { duration: 140ms; }
+                                                    animate border-color { duration: 140ms; }
+                                                    Icon {
+                                                        text: "\u{e872}";
+                                                        font-size: 18px;
+                                                        color: cat-del-ta.has-hover ? Theme.red : Theme.text-secondary;
+                                                        animate color { duration: 140ms; }
+                                                    }
+                                                    cat-del-ta := TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => { root.delete-mod(cmod.file-name); }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
