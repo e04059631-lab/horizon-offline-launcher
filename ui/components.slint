@@ -64,7 +64,7 @@ export component GlassButton inherits Rectangle {
     border-radius: self.height / 2;
     opacity: enabled ? 1.0 : 0.45;
     background: kind == "primary"
-        ? (ta.pressed ? #D94F0CEB : (ta.has-hover ? #FF7D38EB : #FF6A1FE0))
+        ? (ta.pressed ? Theme.accent-pressed : (ta.has-hover ? Theme.accent-hover : Theme.accent))
         : kind == "danger"
         ? (ta.pressed ? #CC251CEB : (ta.has-hover ? #FF544AEB : #FF3B30E0))
         : (ta.pressed ? Theme.droplet-bg : (ta.has-hover ? Theme.inner-tile-hover : Theme.inner-tile));
@@ -801,7 +801,7 @@ export component Toggle inherits Rectangle {
     width: 50px;
     height: 30px;
     border-radius: 15px;
-    background: checked ? Theme.green : Theme.fill-strong;
+    background: checked ? Theme.accent : Theme.fill-strong;
     animate background { duration: 200ms; }
 
     property <length> thumb-w: ta.pressed ? 30px : 26px;
@@ -910,7 +910,7 @@ export component Slider inherits Rectangle {
                 width: 12px + (parent.width - 24px) * root.ratio;
                 height: 5px;
                 border-radius: 2.5px;
-                background: @linear-gradient(90deg, #FFA45C 0%, #FF6A1F 100%);
+                background: @linear-gradient(90deg, Theme.accent-light 0%, Theme.accent 100%);
                 animate width { duration: 110ms; easing: spring(0.0); }
             }
 
@@ -987,7 +987,7 @@ export component Field inherits Rectangle {
                 text <=> root.text;
                 font-size: 13.5px;
                 color: Theme.text-primary;
-                selection-background-color: #FF6A1F55;
+                selection-background-color: Theme.accent-selection;
                 vertical-alignment: center;
                 single-line: true;
                 accepted => { root.accepted(); }

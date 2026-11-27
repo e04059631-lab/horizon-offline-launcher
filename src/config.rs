@@ -7,7 +7,7 @@ pub fn default_mods_repo_url() -> String {
 }
 
 pub fn default_backdrop_preset() -> String {
-    "abstract".to_string()
+    "blue".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

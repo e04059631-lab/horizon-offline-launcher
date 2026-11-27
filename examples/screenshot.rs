@@ -29,7 +29,7 @@ fn main() {
     window.set_size(slint::PhysicalSize::new(1100, 720));
 
     let app = AppWindow::new().unwrap();
-    backdrop::apply_preset(&app, "abstract", None);
+    backdrop::apply_preset(&app, "blue", None);
     app.set_backdrop_index(0);
     app.set_nickname("wwerz".into());
     app.set_client_ready(true);
@@ -106,12 +106,13 @@ fn main() {
     ])));
     app.show().unwrap();
 
-    let shots: [(&str, u32, u32, i32, i32, bool, &str); 5] = [
-        ("v4_home_lunar", 1100, 720, 0, 0, true, "abstract"),
-        ("v4_home_aurora", 1100, 720, 0, 0, true, "aurora"),
-        ("v4_mods_full", 1100, 720, 1, 0, true, "abstract"),
-        ("v4_mods_narrow940", 940, 640, 1, 0, true, "abstract"),
-        ("v4_settings_full", 1100, 720, 2, 0, true, "abstract"),
+    let shots: [(&str, u32, u32, i32, i32, bool, &str); 6] = [
+        ("v5_home_blue", 1100, 720, 0, 0, true, "blue"),
+        ("v5_home_aurora", 1100, 720, 0, 0, true, "aurora"),
+        ("v5_home_dusk", 1100, 720, 0, 0, true, "dusk"),
+        ("v5_home_sunset", 1100, 720, 0, 0, true, "sunset"),
+        ("v5_mods_blue", 1100, 720, 1, 0, true, "blue"),
+        ("v5_settings_blue", 1100, 720, 2, 0, true, "blue"),
     ];
 
     for (name, w, h, tab, mods_view, dark, bg) in shots {

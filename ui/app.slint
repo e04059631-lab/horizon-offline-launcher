@@ -280,7 +280,8 @@ export component AppWindow inherits Window {
                             width: 30px;
                             height: 30px;
                             border-radius: 15px;
-                            background: @linear-gradient(135deg, #FFB37A 0%, #FF6A1F 100%);
+                            background: Theme.accent;
+                            animate background { duration: 220ms; }
                             Icon {
                                 text: "\u{e7fd}";
                                 font-size: 18px;
@@ -412,8 +413,8 @@ export component AppWindow inherits Window {
                                 opacity: (root.is-playing || !root.is-unpacking) ? 1.0 : 0.45;
                                 background: root.is-playing
                                     ? (play-ta.pressed ? #C8231AF2 : (play-ta.has-hover ? #FF574DF5 : #FF3B30F0))
-                                    : (play-ta.pressed ? #D64D0AF2 : (play-ta.has-hover ? #FF823CF5 : #FF6A1FF2));
-                                animate background { duration: 150ms; }
+                                    : (play-ta.pressed ? Theme.accent-pressed : (play-ta.has-hover ? Theme.accent-hover : Theme.accent));
+                                animate background { duration: 160ms; }
 
                                 HorizontalLayout {
                                     alignment: center;
@@ -1157,8 +1158,8 @@ export component AppWindow inherits Window {
                                     WallpaperTile {
                                         horizontal-stretch: 1;
                                         height: 82px;
-                                        label: "Стекло";
-                                        preview: @image-url("../assets/thumb-abstract.jpg");
+                                        label: "Синий час";
+                                        preview: @image-url("../assets/thumb-blue.jpg");
                                         selected: root.backdrop-index == 0;
                                         clicked => { root.select-backdrop(0); }
                                     }
@@ -1173,8 +1174,8 @@ export component AppWindow inherits Window {
                                     WallpaperTile {
                                         horizontal-stretch: 1;
                                         height: 82px;
-                                        label: "Сакура";
-                                        preview: @image-url("../assets/thumb-cherry.jpg");
+                                        label: "Персеиды";
+                                        preview: @image-url("../assets/thumb-dusk.jpg");
                                         selected: root.backdrop-index == 2;
                                         clicked => { root.select-backdrop(2); }
                                     }
@@ -1570,7 +1571,8 @@ export component AppWindow inherits Window {
                             width: 48px;
                             height: 48px;
                             border-radius: 24px;
-                            background: @linear-gradient(135deg, #FFB37A 0%, #FF6A1F 100%);
+                            background: Theme.accent;
+                            animate background { duration: 220ms; }
                             Icon {
                                 text: "\u{e7fd}";
                                 font-size: 26px;
@@ -1726,7 +1728,7 @@ export component AppWindow inherits Window {
                         x: 0px;
                         width: parent.width * Math.clamp(root.unpack-progress, 0.0, 1.0);
                         border-radius: 4px;
-                        background: @linear-gradient(90deg, #FFA45C 0%, #FF6A1F 100%);
+                        background: @linear-gradient(90deg, Theme.accent-light 0%, Theme.accent 100%);
                         animate width { duration: 140ms; easing: ease-out; }
                     }
                 }

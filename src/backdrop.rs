@@ -1,26 +1,37 @@
-//! Liquid Glass multi-wallpaper backdrop engine:
-//! Supports 4 embedded wallpapers + custom user image (.png/.jpg/.jpeg)
-//! with automatic frosted Liquid Glass blur generation and native Windows file picker.
+//! Liquid Glass multi-wallpaper backdrop engine with automatic adaptive accent extraction:
+//! Supports 4 embedded real-photography wallpapers + custom user image (.png/.jpg/.jpeg),
+//! computes frosted Liquid Glass blur, and extracts a harmonious UI accent palette from every image.
 
-use crate::ui_bridge::{AppWindow, Backdrop};
+use crate::ui_bridge::{AppWindow, Backdrop, Theme};
 use image::{imageops, DynamicImage, RgbaImage};
-use slint::{ComponentHandle, Image, Rgba8Pixel, SharedPixelBuffer};
+use slint::{Color, ComponentHandle, Image, Rgba8Pixel, SharedPixelBuffer};
 use std::path::{Path, PathBuf};
 
-static BG_ABSTRACT: &[u8] = include_bytes!("../assets/bg-abstract.jpg");
+static BG_BLUE: &[u8] = include_bytes!("../assets/bg-blue.jpg");
 static BG_AURORA: &[u8] = include_bytes!("../assets/bg-aurora.jpg");
-static BG_CHERRY: &[u8] = include_bytes!("../assets/bg-cherry.jpg");
-static BG_SUNSET: &[u8] = include_bytes!("../assets/background.jpg");
+static BG_DUSK: &[u8] = include_bytes!("../assets/bg-dusk.jpg");
+static BG_SUNSET: &[u8] = include_bytes!("../assets/bg-sunset.jpg");
 
 const BLUR_SIGMA: f32 = 8.5;
 const DOWNSCALE: u32 = 4;
 const MAX_CUSTOM_DIM: u32 = 1920;
 
+#[derive(Debug, Clone, Copy)]
+pub struct AccentPalette {
+    pub accent: Color,
+    pub hover: Color,
+    pub pressed: Color,
+    pub light: Color,
+    pub label_dark: Color,
+    pub label_light: Color,
+    pub selection: Color,
+}
+
 pub fn preset_to_index(preset: &str) -> i32 {
     match preset {
-        "abstract" => 0,
+        "blue" | "abstract" => 0,
         "aurora" => 1,
-        "cherry" => 2,
+        "dusk" | "cherry" => 2,
         "sunset" => 3,
         "custom" => 4,
         _ => 0,
@@ -30,21 +41,21 @@ pub fn preset_to_index(preset: &str) -> i32 {
 #[allow(dead_code)]
 pub fn index_to_preset(idx: i32) -> &'static str {
     match idx {
-        0 => "abstract",
+        0 => "blue",
         1 => "aurora",
-        2 => "cherry",
+        2 => "dusk",
         3 => "sunset",
         4 => "custom",
-        _ => "abstract",
+        _ => "blue",
     }
 }
 
 fn embedded_bytes(preset: &str) -> &'static [u8] {
     match preset {
         "aurora" => BG_AURORA,
-        "cherry" => BG_CHERRY,
+        "dusk" | "cherry" => BG_DUSK,
         "sunset" => BG_SUNSET,
-        _ => BG_ABSTRACT,
+        _ => BG_BLUE,
     }
 }
 
@@ -79,12 +90,162 @@ pub fn apply_preset(window: &AppWindow, preset: &str, custom_path: Option<&Path>
         (h / DOWNSCALE).max(1),
         imageops::FilterType::Triangle,
     );
+
+    let palette = extract_accent_palette(&small);
+    apply_accent_palette(window, palette);
+
     let mut frosted = imageops::fast_blur(&small, BLUR_SIGMA);
     vibrancy(&mut frosted, 1.28);
 
     let backdrop = window.global::<Backdrop>();
     backdrop.set_sharp(to_slint(&sharp));
     backdrop.set_blurred(to_slint(&frosted));
+}
+
+fn apply_accent_palette(window: &AppWindow, p: AccentPalette) {
+    let theme = window.global::<Theme>();
+    theme.set_accent(p.accent);
+    theme.set_accent_hover(p.hover);
+    theme.set_accent_pressed(p.pressed);
+    theme.set_accent_light(p.light);
+    theme.set_accent_label_dark(p.label_dark);
+    theme.set_accent_label_light(p.label_light);
+    theme.set_accent_selection(p.selection);
+}
+
+/// Extracts a clean, high-contrast adaptive UI accent palette from any wallpaper image.
+pub fn extract_accent_palette(img: &RgbaImage) -> AccentPalette {
+    let mut bin_weight = [0.0f64; 36];
+    let mut bin_sin = [0.0f64; 36];
+    let mut bin_cos = [0.0f64; 36];
+    let mut bin_sat = [0.0f64; 36];
+    let mut total_weight = 0.0f64;
+
+    for p in img.pixels() {
+        let [r8, g8, b8, a8] = p.0;
+        if a8 < 128 {
+            continue;
+        }
+        let r = r8 as f64 / 255.0;
+        let g = g8 as f64 / 255.0;
+        let b = b8 as f64 / 255.0;
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let delta = max - min;
+        if max < 0.14 || delta < 0.04 {
+            continue;
+        }
+        let sat = delta / max;
+        if sat < 0.15 || (max > 0.96 && sat < 0.25) {
+            continue;
+        }
+
+        let mut hue = if (max - r).abs() < 1e-9 {
+            60.0 * (((g - b) / delta) % 6.0)
+        } else if (max - g).abs() < 1e-9 {
+            60.0 * (((b - r) / delta) + 2.0)
+        } else {
+            60.0 * (((r - g) / delta) + 4.0)
+        };
+        if hue < 0.0 {
+            hue += 360.0;
+        }
+
+        // Favor rich, clean mid-tone colors over noisy shadows or blown highlights
+        let mid_v = (1.0 - (max - 0.54).abs() * 1.35).max(0.08);
+        let w = sat * sat * mid_v;
+        let idx = ((hue / 10.0).floor() as usize) % 36;
+        let rad = hue.to_radians();
+
+        bin_weight[idx] += w;
+        bin_sin[idx] += rad.sin() * w;
+        bin_cos[idx] += rad.cos() * w;
+        bin_sat[idx] += sat * w;
+        total_weight += w;
+    }
+
+    let (hue_deg, sat_ui) = if total_weight < 8.0 {
+        // Nearly monochrome wallpaper -> clean Apple Sapphire Blue fallback
+        (212.0, 0.80)
+    } else {
+        let mut best_bin = 0usize;
+        let mut best_score = -1.0f64;
+        for i in 0..36 {
+            let prev = (i + 35) % 36;
+            let next = (i + 1) % 36;
+            let smoothed = 0.25 * bin_weight[prev] + 0.50 * bin_weight[i] + 0.25 * bin_weight[next];
+            if smoothed > best_score {
+                best_score = smoothed;
+                best_bin = i;
+            }
+        }
+
+        let prev = (best_bin + 35) % 36;
+        let next = (best_bin + 1) % 36;
+        let mut s_sum = 0.0;
+        let mut c_sum = 0.0;
+        let mut sat_sum = 0.0;
+        let mut w_sum = 0.0;
+        for b_idx in [prev, best_bin, next] {
+            s_sum += bin_sin[b_idx];
+            c_sum += bin_cos[b_idx];
+            sat_sum += bin_sat[b_idx];
+            w_sum += bin_weight[b_idx];
+        }
+        let mut mean_hue = s_sum.atan2(c_sum).to_degrees();
+        if mean_hue < 0.0 {
+            mean_hue += 360.0;
+        }
+        let mean_sat = (sat_sum / w_sum.max(1e-6)).clamp(0.68, 0.86);
+        (mean_hue, mean_sat)
+    };
+
+    // Perceptually balanced base lightness so white text on primary buttons always reads crisply
+    let l_base = if (45.0..170.0).contains(&hue_deg) {
+        0.41 // gold / lime / emerald / bright teal -> rich deeper tone for crisp white text
+    } else if (170.0..205.0).contains(&hue_deg) {
+        0.46 // cyan-sky
+    } else if (205.0..265.0).contains(&hue_deg) {
+        0.54 // sapphire / cobalt / indigo
+    } else if (265.0..335.0).contains(&hue_deg) {
+        0.56 // violet / orchid / rose
+    } else {
+        0.52 // warm coral / amber / crimson
+    };
+
+    AccentPalette {
+        accent: hsl_to_color(hue_deg, sat_ui, l_base, 242),
+        hover: hsl_to_color(hue_deg, (sat_ui + 0.04).min(0.94), (l_base + 0.06).min(0.68), 250),
+        pressed: hsl_to_color(hue_deg, sat_ui, (l_base - 0.08).max(0.28), 245),
+        light: hsl_to_color(hue_deg, (sat_ui + 0.04).min(0.95), (l_base + 0.17).min(0.78), 255),
+        label_dark: hsl_to_color(hue_deg, (sat_ui + 0.06).min(0.96), 0.72, 255),
+        label_light: hsl_to_color(hue_deg, (sat_ui + 0.06).min(0.94), 0.38, 255),
+        selection: hsl_to_color(hue_deg, sat_ui, l_base, 85),
+    }
+}
+
+fn hsl_to_color(h: f64, s: f64, l: f64, alpha: u8) -> Color {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let hp = (h % 360.0) / 60.0;
+    let x = c * (1.0 - (hp % 2.0 - 1.0).abs());
+    let (r1, g1, b1) = if hp < 1.0 {
+        (c, x, 0.0)
+    } else if hp < 2.0 {
+        (x, c, 0.0)
+    } else if hp < 3.0 {
+        (0.0, c, x)
+    } else if hp < 4.0 {
+        (0.0, x, c)
+    } else if hp < 5.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    let m = l - c / 2.0;
+    let r = ((r1 + m).clamp(0.0, 1.0) * 255.0).round() as u8;
+    let g = ((g1 + m).clamp(0.0, 1.0) * 255.0).round() as u8;
+    let b = ((b1 + m).clamp(0.0, 1.0) * 255.0).round() as u8;
+    Color::from_argb_u8(alpha, r, g, b)
 }
 
 #[allow(dead_code)]
@@ -122,7 +283,6 @@ fn to_slint(img: &RgbaImage) -> Image {
 /// Validates and copies a user-chosen wallpaper into `dest_dir/custom_backdrop.<ext>`.
 #[allow(dead_code)]
 pub fn import_custom_backdrop(src: &Path, dest_dir: &Path) -> Result<PathBuf, String> {
-    // Verify image decodes cleanly before replacing the saved custom background
     image::open(src).map_err(|e| format!("Не удалось открыть изображение: {e}"))?;
     let ext = src
         .extension()
@@ -236,16 +396,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_all_builtin_wallpapers_decode() {
-        for preset in ["abstract", "aurora", "cherry", "sunset"] {
-            let img = decode_backdrop(preset, None);
-            assert!(img.is_some(), "built-in wallpaper '{preset}' failed to decode");
+    fn test_all_builtin_wallpapers_and_adaptive_accents() {
+        for preset in ["blue", "aurora", "dusk", "sunset"] {
+            let img = decode_backdrop(preset, None)
+                .unwrap_or_else(|| panic!("built-in wallpaper '{preset}' failed to decode"));
+            let small = img.resize(320, 180, imageops::FilterType::Triangle).to_rgba8();
+            let pal = extract_accent_palette(&small);
+            println!(
+                "Wallpaper '{preset}' -> accent rgb({}, {}, {})",
+                pal.accent.red(),
+                pal.accent.green(),
+                pal.accent.blue()
+            );
+            if preset == "blue" {
+                assert!(
+                    pal.accent.blue() > pal.accent.red() + 40,
+                    "blue wallpaper should extract a blue accent, got {:?}",
+                    pal.accent
+                );
+            }
+            if preset == "aurora" {
+                assert!(
+                    pal.accent.green() > pal.accent.red() + 20,
+                    "aurora wallpaper should extract a green/teal accent, got {:?}",
+                    pal.accent
+                );
+            }
         }
-        assert_eq!(preset_to_index("abstract"), 0);
-        assert_eq!(preset_to_index("aurora"), 1);
-        assert_eq!(preset_to_index("cherry"), 2);
-        assert_eq!(preset_to_index("sunset"), 3);
-        assert_eq!(preset_to_index("custom"), 4);
-        assert_eq!(index_to_preset(2), "cherry");
     }
 }

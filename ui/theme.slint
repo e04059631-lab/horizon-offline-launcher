@@ -18,9 +18,15 @@ export global Theme {
     out property <color> text-muted: dark ? #EBEBF57A : #3C3C4399;
     out property <color> text-on-accent: #FFFFFF;
 
-    // Accents
-    out property <color> accent: #FF6A1F;
-    out property <color> accent-label: dark ? #FF9F68 : #D9480F;
+    // Dynamic wallpaper-adaptive accent palette (auto-extracted from active wallpaper!)
+    in-out property <color> accent: #2E8BFF;
+    in-out property <color> accent-hover: #4A9EFF;
+    in-out property <color> accent-pressed: #1C70DC;
+    in-out property <color> accent-light: #76BBFF;
+    in-out property <color> accent-label-dark: #7AC0FF;
+    in-out property <color> accent-label-light: #1666D2;
+    in-out property <color> accent-selection: #2E8BFF55;
+    out property <color> accent-label: dark ? accent-label-dark : accent-label-light;
     out property <color> blue: dark ? #409CFF : #0A84FF;
     out property <color> green: dark ? #32D74B : #34C759;
     out property <color> red: dark ? #FF453A : #FF3B30;
