@@ -184,6 +184,8 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                         let _ = window_weak.upgrade_in_event_loop(|w| {
                             w.set_is_playing(true);
                             w.set_has_status_message(false);
+                            // Auto-minimize launcher so Slint/GPU uses 0% GPU/VRAM while Minecraft launches & runs
+                            w.window().set_minimized(true);
                         });
                     }
                     Err(e) => {
@@ -707,9 +709,13 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                         w.set_is_playing(is_running);
                     });
                 } else if is_running != last_running {
+                    let was_running = last_running;
                     last_running = is_running;
                     let _ = window_weak.upgrade_in_event_loop(move |w| {
                         w.set_is_playing(is_running);
+                        if was_running && !is_running {
+                            w.window().set_minimized(false);
+                        }
                     });
                 }
             }

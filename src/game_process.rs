@@ -145,7 +145,8 @@ impl GameProcess {
         {
             use std::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
+            const ABOVE_NORMAL_PRIORITY_CLASS: u32 = 0x00008000;
+            cmd.creation_flags(CREATE_NO_WINDOW | ABOVE_NORMAL_PRIORITY_CLASS);
         }
 
         *self.state.lock().unwrap() = GameState::Starting;
