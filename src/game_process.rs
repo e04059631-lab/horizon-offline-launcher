@@ -49,6 +49,13 @@ impl GameProcess {
         matches!(self.current_state(), GameState::Running { .. })
     }
 
+    pub fn is_busy(&self) -> bool {
+        matches!(
+            self.current_state(),
+            GameState::Starting | GameState::Running { .. }
+        )
+    }
+
     pub fn kill(&self) {
         let mut child_guard = self.child.lock().unwrap();
         if let Some(mut child) = child_guard.take() {

@@ -25,6 +25,8 @@ struct CatalogState {
     icons: HashMap<String, (u32, u32, Vec<u8>)>,
     local_icons: HashMap<String, Option<(u32, u32, Vec<u8>)>>,
     icon_cache_dir: PathBuf,
+    icon_cache_index: Option<HashMap<String, PathBuf>>,
+    catalog_fetch_started: bool,
     query: String,
     filter: i32, // 0 = all, 1 = shaders, 2 = resourcepacks/pvp
 }
@@ -117,7 +119,8 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let picked = shader_combiner::sync_combined_shaders(&game_dir, &cfg.enabled_shaders);
         write_picked_shader_pack(&game_dir, &picked);
     }
-    update_mods_ui(window, &game_dir, &mods_dir, &config, &catalog_state);
+    // Lightweight badge count only on startup (avoid decoding 20+ ZIP pack icons & scanning 1300+ cache files before the window even appears)
+    update_mods_badge_counts(window, &game_dir, &mods_dir, &config);
 
     // 3. Initial Logs (Empty by default, showing only real game logs)
     let log_entries = Arc::new(Mutex::new(Vec::<LogEntry>::new()));
@@ -242,10 +245,34 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let mods_dir_clone = mods_dir.clone();
         let catalog_clone = Arc::clone(&catalog_state);
         let config_clone = Arc::clone(&config);
+        let game_clone = Arc::clone(&game);
+        let icon_cache_clone = icon_cache_dir.clone();
         window.on_refresh_mods(move || {
             if let Some(w) = window_weak.upgrade() {
                 update_mods_ui(&w, &game_dir_clone, &mods_dir_clone, &config_clone, &catalog_clone);
                 rebuild_catalog_ui(&w, &catalog_clone, &game_dir_clone, &mods_dir_clone);
+                let should_fetch = {
+                    let mut st = catalog_clone.lock().unwrap();
+                    if !st.catalog_fetch_started {
+                        st.catalog_fetch_started = true;
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if should_fetch {
+                    let repo_url = { config_clone.lock().unwrap().mods_repo_url.clone() };
+                    spawn_fetch_catalog(
+                        window_weak.clone(),
+                        Arc::clone(&catalog_clone),
+                        Arc::clone(&config_clone),
+                        Arc::clone(&game_clone),
+                        game_dir_clone.clone(),
+                        mods_dir_clone.clone(),
+                        icon_cache_clone.clone(),
+                        repo_url,
+                    );
+                }
             }
         });
     }
@@ -353,16 +380,21 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let window_weak = window.as_weak();
         let config_clone = Arc::clone(&config);
         let catalog_clone = Arc::clone(&catalog_state);
+        let game_clone = Arc::clone(&game);
         let game_dir_clone = game_dir.clone();
         let mods_dir_clone = mods_dir.clone();
         let icon_cache_clone = icon_cache_dir.clone();
 
         window.on_refresh_catalog(move || {
+            {
+                catalog_clone.lock().unwrap().catalog_fetch_started = true;
+            }
             let repo_url = { config_clone.lock().unwrap().mods_repo_url.clone() };
             spawn_fetch_catalog(
                 window_weak.clone(),
                 Arc::clone(&catalog_clone),
                 Arc::clone(&config_clone),
+                Arc::clone(&game_clone),
                 game_dir_clone.clone(),
                 mods_dir_clone.clone(),
                 icon_cache_clone.clone(),
@@ -643,27 +675,35 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         thread::spawn(move || {
             let mut last_running = false;
             loop {
-                thread::sleep(Duration::from_millis(150));
+                thread::sleep(Duration::from_millis(if last_running { 250 } else { 300 }));
 
                 let new_lines = game_clone.drain_logs();
                 let is_running = game_clone.is_running();
 
                 if !new_lines.is_empty() {
+                    let new_entries: Vec<LogEntry> =
+                        new_lines.iter().map(|l| make_log_entry(l)).collect();
                     {
                         let mut entries = log_entries_clone.lock().unwrap();
-                        for line in new_lines {
-                            entries.push(make_log_entry(&line));
-                        }
+                        entries.extend(new_entries.iter().cloned());
                         if entries.len() > 1000 {
                             let excess = entries.len() - 1000;
                             entries.drain(0..excess);
                         }
                     }
                     last_running = is_running;
-                    let entries_clone = Arc::clone(&log_entries_clone);
                     let _ = window_weak.upgrade_in_event_loop(move |w| {
-                        let current_entries = entries_clone.lock().unwrap().clone();
-                        w.set_log_lines(ModelRc::new(VecModel::from(current_entries)));
+                        let model_rc = w.get_log_lines();
+                        if let Some(vec_model) = model_rc.as_any().downcast_ref::<VecModel<LogEntry>>() {
+                            for entry in new_entries {
+                                vec_model.push(entry);
+                            }
+                            while vec_model.row_count() > 1000 {
+                                vec_model.remove(0);
+                            }
+                        } else {
+                            w.set_log_lines(ModelRc::new(VecModel::from(new_entries)));
+                        }
                         w.set_is_playing(is_running);
                     });
                 } else if is_running != last_running {
@@ -676,19 +716,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         });
     }
 
-    // 12. Initial Background Catalog Fetch
-    {
-        let initial_url = { config.lock().unwrap().mods_repo_url.clone() };
-        spawn_fetch_catalog(
-            window.as_weak(),
-            Arc::clone(&catalog_state),
-            Arc::clone(&config),
-            game_dir.clone(),
-            mods_dir.clone(),
-            icon_cache_dir,
-            initial_url,
-        );
-    }
+    // 12. Catalog is now fetched lazily when the user opens the Mods tab (zero CPU/RAM/disk contention on game launch!)
 
     // 13. Client Unpacking Flow
     setup_client_unpacking(window);
@@ -860,6 +888,7 @@ fn spawn_fetch_catalog(
     window_weak: slint::Weak<AppWindow>,
     catalog_state: Arc<Mutex<CatalogState>>,
     config: Arc<Mutex<LauncherConfig>>,
+    game: Arc<GameProcess>,
     game_dir: PathBuf,
     mods_dir: PathBuf,
     icon_cache_dir: PathBuf,
@@ -907,16 +936,17 @@ fn spawn_fetch_catalog(
                 rebuild_catalog_ui(&w, &catalog_for_ui, &game_dir_for_ui, &mods_dir_for_ui);
             });
 
-            // Fetch mod icons in 6 parallel worker threads and patch ONLY modified rows in-place (O(1), zero scroll lag!)
+            // Fetch mod icons in 2 gentle worker threads and pause completely while Minecraft is launching/running
             if !icon_jobs.is_empty() {
                 let queue = Arc::new(Mutex::new(icon_jobs.into_iter()));
                 let installed_ids_arc = Arc::new(installed_ids);
                 let mut handles = Vec::new();
-                for _ in 0..6 {
+                for _ in 0..2 {
                     let q = Arc::clone(&queue);
                     let cache_dir = icon_cache_dir.clone();
                     let state_arc = Arc::clone(&catalog_state);
                     let cfg_arc = Arc::clone(&config);
+                    let game_arc = Arc::clone(&game);
                     let inst_arc = Arc::clone(&installed_ids_arc);
                     let w_weak = window_weak.clone();
                     let g_dir = game_dir.clone();
@@ -925,6 +955,9 @@ fn spawn_fetch_catalog(
                         let mut batch: Vec<(String, u32, u32, Vec<u8>)> = Vec::with_capacity(12);
                         let mut touched_installed = false;
                         loop {
+                            while game_arc.is_busy() {
+                                thread::sleep(Duration::from_millis(500));
+                            }
                             let next = { q.lock().unwrap().next() };
                             let Some((id, icon_url)) = next else { break };
                             if let Some((iw, ih, bytes)) =
@@ -1223,6 +1256,63 @@ fn installed_mod_base_names(game_dir: &Path, mods_dir: &Path) -> HashSet<String>
     set
 }
 
+/// Fast startup-only count of installed/enabled mods without reading ZIPs or decoding any icons.
+fn update_mods_badge_counts(
+    window: &AppWindow,
+    game_dir: &Path,
+    mods_dir: &Path,
+    config: &Arc<Mutex<LauncherConfig>>,
+) {
+    let enabled_shaders = { config.lock().unwrap().enabled_shaders.clone() };
+    let enabled_rps = read_enabled_resource_packs(game_dir);
+    let mut active = 0i32;
+    let mut total = 0i32;
+
+    if let Ok(entries) = fs::read_dir(mods_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_file() { continue; }
+            let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+            if name.starts_with('.') || name.starts_with("_verify_") { continue; }
+            let base = name.strip_suffix(".disabled").unwrap_or(&name);
+            let ext = Path::new(base).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            if matches!(ext.as_str(), "hmod" | "hnmod" | "jar" | "zip") {
+                total += 1;
+                if !name.ends_with(".disabled") { active += 1; }
+            }
+        }
+    }
+    if let Ok(entries) = fs::read_dir(game_dir.join("shaderpacks")) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_file() { continue; }
+            let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+            if name.starts_with('.') || name.starts_with("_verify_") { continue; }
+            if p.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("hshader")).unwrap_or(false) {
+                total += 1;
+                if enabled_shaders.iter().any(|s| s.eq_ignore_ascii_case(&name)) { active += 1; }
+            }
+        }
+    }
+    if let Ok(entries) = fs::read_dir(game_dir.join("resourcepacks")) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_file() { continue; }
+            let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+            if name.starts_with('.') || name.starts_with("_verify_") { continue; }
+            if p.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("zip")).unwrap_or(false) {
+                total += 1;
+                let rp_key = format!("file/{name}");
+                if enabled_rps.iter().any(|item| item.eq_ignore_ascii_case(&rp_key) || item.eq_ignore_ascii_case(&name)) {
+                    active += 1;
+                }
+            }
+        }
+    }
+    window.set_active_mods_count(active);
+    window.set_total_mods_count(total);
+}
+
 fn update_mods_ui(
     window: &AppWindow,
     game_dir: &Path,
@@ -1368,27 +1458,43 @@ fn extract_zip_pack_icon(zip_path: &Path) -> Option<(u32, u32, Vec<u8>)> {
     None
 }
 
-fn load_cached_icon_by_stem(cache_dir: &Path, stem: &str) -> Option<(u32, u32, Vec<u8>)> {
-    let safe_stem: String = stem
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-        .collect();
-    let prefix = format!("{safe_stem}_");
-    let exact = format!("{safe_stem}.img");
-    let entries = fs::read_dir(cache_dir).ok()?;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.eq_ignore_ascii_case(&exact)
-            || (name.to_lowercase().starts_with(&prefix.to_lowercase()) && name.ends_with(".img"))
-        {
-            if let Ok(bytes) = fs::read(entry.path()) {
-                if let Some(rgba) = decode_icon_bytes(&bytes) {
-                    return Some(rgba);
-                }
+fn ensure_icon_cache_index(state: &mut CatalogState) {
+    if state.icon_cache_index.is_some() {
+        return;
+    }
+    let mut map = HashMap::new();
+    if let Ok(entries) = fs::read_dir(&state.icon_cache_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let lower = name.to_lowercase();
+            if let Some(stem_part) = lower.strip_suffix(".img") {
+                // Support both `<safe_stem>_<8hex>.img` and `<safe_stem>.img`
+                let key = if let Some((prefix, hash)) = stem_part.rsplit_once('_') {
+                    if hash.len() == 8 && hash.chars().all(|c| c.is_ascii_hexdigit()) {
+                        prefix.to_string()
+                    } else {
+                        stem_part.to_string()
+                    }
+                } else {
+                    stem_part.to_string()
+                };
+                map.entry(key).or_insert_with(|| entry.path());
             }
         }
     }
-    None
+    state.icon_cache_index = Some(map);
+}
+
+fn load_cached_icon_by_stem(state: &mut CatalogState, stem: &str) -> Option<(u32, u32, Vec<u8>)> {
+    ensure_icon_cache_index(state);
+    let safe_stem: String = stem
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect::<String>()
+        .to_lowercase();
+    let path = state.icon_cache_index.as_ref()?.get(&safe_stem)?.clone();
+    let bytes = fs::read(path).ok()?;
+    decode_icon_bytes(&bytes)
 }
 
 fn resolve_installed_icon_and_name(
@@ -1433,7 +1539,7 @@ fn resolve_installed_icon_and_name(
             if stem.is_empty() {
                 None
             } else {
-                load_cached_icon_by_stem(&state.icon_cache_dir, stem)
+                load_cached_icon_by_stem(state, stem)
             }
         });
         state.local_icons.insert(key.clone(), extracted);
