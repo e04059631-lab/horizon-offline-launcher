@@ -12,6 +12,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 pub const COMBINED_PACK_NAME: &str = ".horizon-combined.hshader";
 
 struct LoadedPack {
+    file_name: String,
     prefix: String,
     display_name: String,
     manifest: toml::Value,
@@ -19,6 +20,7 @@ struct LoadedPack {
 }
 
 fn read_pack(path: &Path, idx: usize) -> Option<LoadedPack> {
+    let file_name = path.file_name()?.to_string_lossy().to_string();
     let file = fs::File::open(path).ok()?;
     let mut archive = ZipArchive::new(file).ok()?;
     let mut files = HashMap::new();
@@ -45,6 +47,7 @@ fn read_pack(path: &Path, idx: usize) -> Option<LoadedPack> {
         .to_string();
 
     Some(LoadedPack {
+        file_name,
         prefix: format!("p{idx}_"),
         display_name,
         manifest,
@@ -112,7 +115,7 @@ fn collect_wgsl_decls(src: &str) -> Vec<String> {
         if trimmed.starts_with("//") {
             continue;
         }
-        for kw in ["fn ", "override ", "const ", "struct "] {
+        for kw in ["fn ", "override ", "const ", "struct ", "alias ", "var "] {
             if let Some(rest) = trimmed.strip_prefix(kw) {
                 let ident: String = rest
                     .chars()
@@ -190,7 +193,7 @@ pub fn sync_combined_shaders(game_dir: &Path, enabled_files: &[String]) -> Strin
     }
     if packs.len() == 1 {
         let _ = fs::remove_file(&combined_path);
-        return valid_files[0].clone();
+        return packs[0].file_name.clone();
     }
 
     match build_combined_archive(&combined_path, &packs) {
@@ -456,12 +459,15 @@ fn build_combined_archive(out_path: &Path, packs: &[LoadedPack]) -> Result<(), S
     let manifest_toml =
         toml::to_string_pretty(&toml::Value::Table(root)).map_err(|e| e.to_string())?;
 
-    // Write zip archive atomically
-    let tmp_path = out_path.with_extension("hshader.tmp");
+    // Build zip archive in memory first so we skip touching disk when content is unchanged
+    let mut zip_bytes = Vec::with_capacity(4096);
     {
-        let file = fs::File::create(&tmp_path).map_err(|e| e.to_string())?;
-        let mut zip = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        let cursor = std::io::Cursor::new(&mut zip_bytes);
+        let mut zip = ZipWriter::new(cursor);
+        // Fixed timestamp so identical inputs produce byte-for-byte identical zips
+        let opts = SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Deflated)
+            .last_modified_time(zip::DateTime::default());
 
         zip.start_file("horizon-shaders.toml", opts)
             .map_err(|e| e.to_string())?;
@@ -476,6 +482,14 @@ fn build_combined_archive(out_path: &Path, packs: &[LoadedPack]) -> Result<(), S
         zip.finish().map_err(|e| e.to_string())?;
     }
 
+    if let Ok(existing) = fs::read(out_path) {
+        if existing == zip_bytes {
+            return Ok(());
+        }
+    }
+
+    let tmp_path = out_path.with_extension("hshader.tmp");
+    fs::write(&tmp_path, &zip_bytes).map_err(|e| e.to_string())?;
     if out_path.exists() {
         let _ = fs::remove_file(out_path);
     }

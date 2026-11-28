@@ -136,6 +136,9 @@ pub fn setup_ui_bridge(window: &AppWindow) {
         let game_clone = Arc::clone(&game);
 
         window.on_play(move || {
+            if game_clone.is_busy() {
+                return;
+            }
             let server_addr = if let Some(w) = window_weak.upgrade() {
                 if w.get_is_unpacking() {
                     return;
@@ -179,6 +182,11 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                 } else {
                     Some(server_addr.as_str())
                 };
+                // Re-sync combined shader pack right before launch in case a shader was updated on disk (no-op if unchanged)
+                let gd = cfg.get_game_dir();
+                let picked = shader_combiner::sync_combined_shaders(&gd, &cfg.enabled_shaders);
+                write_picked_shader_pack(&gd, &picked);
+
                 match game_clone.launch(&cfg, server_opt) {
                     Ok(_) => {
                         let _ = window_weak.upgrade_in_event_loop(|w| {
@@ -210,6 +218,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
             let _ = window_weak.upgrade_in_event_loop(|w| {
                 w.set_is_playing(false);
                 w.set_has_status_message(false);
+                w.window().set_minimized(false);
             });
         });
     }
@@ -681,6 +690,7 @@ pub fn setup_ui_bridge(window: &AppWindow) {
 
                 let new_lines = game_clone.drain_logs();
                 let is_running = game_clone.is_running();
+                let should_restore = last_running && !is_running;
 
                 if !new_lines.is_empty() {
                     let new_entries: Vec<LogEntry> =
@@ -707,13 +717,15 @@ pub fn setup_ui_bridge(window: &AppWindow) {
                             w.set_log_lines(ModelRc::new(VecModel::from(new_entries)));
                         }
                         w.set_is_playing(is_running);
+                        if should_restore {
+                            w.window().set_minimized(false);
+                        }
                     });
                 } else if is_running != last_running {
-                    let was_running = last_running;
                     last_running = is_running;
                     let _ = window_weak.upgrade_in_event_loop(move |w| {
                         w.set_is_playing(is_running);
-                        if was_running && !is_running {
+                        if should_restore {
                             w.window().set_minimized(false);
                         }
                     });
